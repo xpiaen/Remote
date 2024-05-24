@@ -2,3 +2,6 @@
 /RemoteCtrl/RemoteClient/*.user
 /RemoteCtrl/RemoteCtrl/*.user
 /RemoteCtrl/RemoteClient/*.aps
+/RemoteCtrl/Debug
+/RemoteCtrl/RemoteClient/Debug
+/RemoteCtrl/RemoteCtrl/Debug
