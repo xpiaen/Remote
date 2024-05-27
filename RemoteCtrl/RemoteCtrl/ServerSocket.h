@@ -2,9 +2,22 @@
 #include "pch.h"
 #include "framework.h"
 
+#pragma pack(push)
+#pragma pack(1)
 class CPacket{
 public:
-	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0){}
+	CPacket():sHead(0), nLength(0), sCmd(0), sSum(0) {}
+	CPacket(WORD ncmd, const BYTE* pData, size_t nSize) {
+		sHead = 0xFEFF;
+		nLength = nSize + 4;
+		sCmd = ncmd;
+		strData.resize(nSize);
+		memcpy((void*)strData.c_str(), pData, nSize);
+		sSum = 0;
+		for (size_t i = 0; i < nSize; i++) {
+			sSum += BYTE(strData[i] & 0xFF);
+		}
+	}
 	CPacket(const CPacket& packet) {
 		sHead = packet.sHead;
 		nLength = packet.nLength;
@@ -12,7 +25,7 @@ public:
 		strData = packet.strData;
 		sSum = packet.sSum;
 	}
-	CPacket(const BYTE* pData, size_t& nSize) {
+	CPacket(const BYTE* pData, size_t& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0) {
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -61,14 +74,35 @@ public:
 		}
 		return *this;;
 	}
-
+	int Size() {//包数据大小
+		return nLength + 2 + 4;
+	}
+	const char* Data() {
+		strOut.resize(nLength + 2 + 4);
+		BYTE* pData = (BYTE*)strOut.c_str();
+		*(WORD*)pData = sHead;
+		pData += 2;
+		*(DWORD*)(pData) = nLength;
+		pData += 4;
+		*(WORD*)(pData) = sCmd;
+		pData += 2;
+		if (strData.size() > 0) {
+			memcpy(pData, strData.c_str(), strData.size());
+			pData += strData.size();
+		}
+		*(WORD*)(pData) = sSum;
+		pData += 2;
+		return strOut.c_str();
+	}
 public:
 	WORD sHead;//包头,固定位FE FF
 	DWORD nLength;//包长度(从控制命令开始，到和校验结束）
 	WORD sCmd;//控制命令
 	std::string strData;//包数据
 	WORD sSum;//和校验
+	std::string strOut;//包数据
 };
+#pragma pack(pop)
 
 class CServerSocket
 {
@@ -126,7 +160,12 @@ public:
 	}
 
 	bool Send(const char* pData, size_t nSize) {
+		if (m_client == -1)return false;
 		return send(m_client, pData, nSize, 0) > 0;
+	}
+	bool Send(CPacket& pack) {
+		if (m_client == -1)return false;
+		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
 	}
 private:
 	CPacket m_packet;
@@ -151,7 +190,8 @@ private:
 	}
 	BOOL InitSockEnv() {
 		WSAData data;
-		if (WSAStartup(MAKELONG(1, 1), &data) != 0) {
+		if (WSAStartup(MAKEWORD(1, 1), &data) != 0) {
+			// 初始化失败，处理错误
 			return FALSE;
 		}
 		return TRUE;
