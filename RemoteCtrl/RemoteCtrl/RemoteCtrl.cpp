@@ -51,6 +51,62 @@ int MakeDriverInfo() {
     return 0;
 }
 
+#include <stdio.h>
+#include <io.h>
+#include <list>
+typedef struct file_info{
+    file_info() {
+        IsInvalid = FALSE;
+        IsDirectory = 0;
+        HasNext = TRUE;
+        memset(szFileName, 0, sizeof(szFileName));
+    }
+    BOOL IsInvalid;//是否有效
+    BOOL IsDirectory;//是否为目录 0 否 1 是
+    BOOL HasNext;//是否有后续 0 否 1 是
+    char szFileName[256];//文件名
+}FILEINFO,*PFILEINFO;
+int MakeDirectoryInfo() {
+    std::string strPath;
+    //std::list<FILEINFO> listFileInfos;
+    if (CServerSocket::getInstance()->GetFilePath(strPath) == false) {
+        OutputDebugStringA("当前命令不是获取文件列表，命令解析错误！！！");
+        return -1;
+    }
+    if (_chdir(strPath.c_str()) != 0) {
+        FILEINFO fileInfo;
+        fileInfo.IsInvalid = TRUE;
+        fileInfo.IsDirectory = TRUE;
+        fileInfo.HasNext = FALSE;
+        memcpy(fileInfo.szFileName, strPath.c_str(), strPath.size());
+        //listFileInfos.push_back(fileInfo);
+        CPacket pack(2, (BYTE*) & fileInfo, sizeof(fileInfo));
+        CServerSocket::getInstance()->Send(pack);
+        OutputDebugStringA("没有权限访问目录！！！");
+        return -2;
+    }
+    _finddata_t fdata;
+    int hfind = 0;
+    if ((hfind = _findfirst("*", &fdata)) == -1) {
+        OutputDebugStringA("没有找到任何文件！！！");
+        return -3;
+    }
+    do {
+        FILEINFO fileInfo;
+        fileInfo.IsDirectory = ((fdata.attrib & _A_SUBDIR) != 0);
+        memcpy(fileInfo.szFileName,fdata.name,strlen(fdata.name));
+        //listFileInfos.push_back(fileInfo);
+        CPacket pack(2, (BYTE*)&fileInfo, sizeof(fileInfo));
+        CServerSocket::getInstance()->Send(pack);
+    } while (!_findnext(hfind, &fdata));
+    //发送信息到控制端
+    FILEINFO fileInfo;
+    fileInfo.HasNext = FALSE;
+    CPacket pack(2, (BYTE*)&fileInfo, sizeof(fileInfo));
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
 int main()
 {
     int nRetCode = 0;
@@ -93,6 +149,9 @@ int main()
             switch(nCmd) {
                 case 1://查看磁盘分区
                     MakeDriverInfo();
+                    break;
+                case 2://查看指定目录下的文件
+                    MakeDirectoryInfo();
                     break;
                 default:
                     break;
