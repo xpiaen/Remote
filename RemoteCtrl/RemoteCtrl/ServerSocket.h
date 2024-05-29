@@ -147,9 +147,11 @@ public:
 
 	bool AcceptClient()
 	{
+		TRACE("enter AcctptClient\r\n");
 		sockaddr_in clnt_addr;
 		int clnt_len = sizeof(clnt_addr);
-		m_client = accept(m_sock, (sockaddr*)&clnt_addr, &clnt_len);//TODO: 返回值处理
+		m_client = accept(m_sock, (sockaddr*)&clnt_addr, &clnt_len);//TODO: 返回值处理3
+		TRACE("m_client = %d\r\n", m_client);
 		if (m_client == -1)return false;
 		return true;
 	}
@@ -157,22 +159,30 @@ public:
 	int  DealCommand() {
 		if (m_client == -1)return -1;
 		char* buffer = new char[BUFFER_SIZE];
+		if (buffer == NULL) {
+			TRACE("内存不足！\r\n");
+			return -2;
+		}
 		memset(buffer, 0, sizeof(buffer));
 		size_t index = 0;
 		while (true) {
 			size_t len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);
 			if (len <= 0) {
+				delete[] buffer;
 				return -1;
 			}
+			TRACE("recv len = %d\r\n", len);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
 			if (len > 0) {
 				memmove(buffer, buffer + len, BUFFER_SIZE -len);
 				index -= len;
+				delete[] buffer;
 				return m_packet.sCmd;
 			}
 		}
+		delete[] buffer;
 		return -1;
 	}
 
@@ -198,7 +208,13 @@ public:
 		}
 		return false;
 	}
-
+	CPacket& GetPacket() {
+		return m_packet;
+	}
+	void CloseClient() {
+		closesocket(m_client);
+		m_client = INVALID_SOCKET;
+	}
 private:
 	CPacket m_packet;
 	SOCKET m_client;
