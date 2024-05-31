@@ -55,18 +55,7 @@ int MakeDriverInfo() {
 #include <stdio.h>
 #include <io.h>
 #include <list>
-typedef struct file_info{
-    file_info() {
-        IsInvalid = FALSE;
-        IsDirectory = 0;
-        HasNext = TRUE;
-        memset(szFileName, 0, sizeof(szFileName));
-    }
-    BOOL IsInvalid;//是否有效
-    BOOL IsDirectory;//是否为目录 0 否 1 是
-    BOOL HasNext;//是否有后续 0 否 1 是
-    char szFileName[256];//文件名
-}FILEINFO,*PFILEINFO;
+
 int MakeDirectoryInfo() {
     std::string strPath;
     //std::list<FILEINFO> listFileInfos;
@@ -76,11 +65,7 @@ int MakeDirectoryInfo() {
     }
     if (_chdir(strPath.c_str()) != 0) {
         FILEINFO fileInfo;
-        fileInfo.IsInvalid = TRUE;
-        fileInfo.IsDirectory = TRUE;
         fileInfo.HasNext = FALSE;
-        memcpy(fileInfo.szFileName, strPath.c_str(), strPath.size());
-        //listFileInfos.push_back(fileInfo);
         CPacket pack(2, (BYTE*) & fileInfo, sizeof(fileInfo));
         CServerSocket::getInstance()->Send(pack);
         OutputDebugStringA("没有权限访问目录！！！");
@@ -90,6 +75,10 @@ int MakeDirectoryInfo() {
     int hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1) {
         OutputDebugStringA("没有找到任何文件！！！");
+        FILEINFO fileInfo;
+        fileInfo.HasNext = FALSE;
+        CPacket pack(2, (BYTE*)&fileInfo, sizeof(fileInfo));
+        CServerSocket::getInstance()->Send(pack);
         return -3;
     }
     do {
@@ -97,6 +86,7 @@ int MakeDirectoryInfo() {
         fileInfo.IsDirectory = ((fdata.attrib & _A_SUBDIR) != 0);
         memcpy(fileInfo.szFileName,fdata.name,strlen(fdata.name));
         //listFileInfos.push_back(fileInfo);
+        TRACE("fileinfoname:%s\r\n", fileInfo.szFileName);
         CPacket pack(2, (BYTE*)&fileInfo, sizeof(fileInfo));
         CServerSocket::getInstance()->Send(pack);
     } while (!_findnext(hfind, &fdata));
@@ -284,7 +274,7 @@ unsigned __stdcall threadLockDlg(void* arg) {
     rect.top = 0;
     rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
     rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
-    rect.bottom *= 1.03;
+    rect.bottom = LONG(rect.bottom * 1.03);
     TRACE("right:%d bottom:%d\r\n", rect.right, rect.bottom);
     dlg.MoveWindow(rect);
     //设置窗口置顶
