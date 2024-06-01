@@ -78,7 +78,7 @@ int CRemoteClientDlg::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, 
 	}
 	CPacket pack(nCmd, pData, nLength);
 	ret = pSock->Send(pack);
-	TRACE("Send ret:%d\r\n", ret);
+	//TRACE("Send ret:%d\r\n", ret);
 	int cmd = pSock->DealCommand();
 	//TRACE("cmd:%d\r\n", cmd);
 	TRACE("ack:%d\r\n", pSock->GetPacket());
@@ -278,12 +278,13 @@ void CRemoteClientDlg::LoadFileInfo()
 	DeleteTreeChildrenItem(hTreeSelected);
 	m_List.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);//取得点击结点的路径
-	TRACE("path:%s\r\n", strPath);
+	//TRACE("path:%s\r\n", strPath);
 	int mCmd = SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
 	PFILEINFO pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	CClientSocket* pSock = CClientSocket::getInstance();
+	int Count = 0;
 	while (pFileInfo->HasNext) {
-		TRACE("FileName:[%s] isdir:%d\r\n", pFileInfo->szFileName, pFileInfo->IsDirectory);
+		//TRACE("FileName:[%s] isdir:%d\r\n", pFileInfo->szFileName, pFileInfo->IsDirectory);
 		if (pFileInfo->IsDirectory) {
 			if (CString(pFileInfo->szFileName) == "." || CString(pFileInfo->szFileName) == "..")
 			{
@@ -299,18 +300,19 @@ void CRemoteClientDlg::LoadFileInfo()
 		else {
 			m_List.InsertItem(0, pFileInfo->szFileName);//插入文件名
 		}
+		Count++;
 		int cmd = pSock->DealCommand();
-		TRACE("ack:%d\r\n", pSock->GetPacket());
+		//TRACE("ack:%d\r\n", pSock->GetPacket());
 		if (cmd < 0)break;
 		pFileInfo = (PFILEINFO)pSock->GetPacket().strData.c_str();
 	}
+	TRACE("Count:%d\r\n", Count);
 	pSock->CloseSocket();
 }
 
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 {
-	// TODO: 在此添加控件通知处理程序代码
 	*pResult = 0;
 	LoadFileInfo();
 }
@@ -318,7 +320,6 @@ void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 
 void CRemoteClientDlg::OnNMClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 {
-	// TODO: 在此添加控件通知处理程序代码
 	*pResult = 0;
 	LoadFileInfo();
 }
@@ -392,6 +393,7 @@ void CRemoteClientDlg::OnDownloadFile()
 		fclose(pFile);
 		pSock->CloseSocket();
 	}
+	//TODO:大文件传输需要额外的处理
 }
 
 

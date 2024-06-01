@@ -81,15 +81,17 @@ int MakeDirectoryInfo() {
         CServerSocket::getInstance()->Send(pack);
         return -3;
     }
+    int Count = 0;
     do {
         FILEINFO fileInfo;
         fileInfo.IsDirectory = ((fdata.attrib & _A_SUBDIR) != 0);
         memcpy(fileInfo.szFileName,fdata.name,strlen(fdata.name));
-        //listFileInfos.push_back(fileInfo);
         TRACE("fileinfoname:%s\r\n", fileInfo.szFileName);
         CPacket pack(2, (BYTE*)&fileInfo, sizeof(fileInfo));
         CServerSocket::getInstance()->Send(pack);
+        Count++;
     } while (!_findnext(hfind, &fdata));
+    TRACE("Server ount:%d\r\n", Count);
     //发送信息到控制端
     FILEINFO fileInfo;
     fileInfo.HasNext = FALSE;
@@ -419,9 +421,9 @@ int main()
                     MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败！"), MB_OK | MB_ICONERROR);
                     count++;
                 }
-                TRACE("AcceptClient return true\r\n");
+                //TRACE("AcceptClient return true\r\n");
                 int ret = pserver->DealCommand();
-                TRACE("DealCommand ret=%d\r\n", ret);
+                //TRACE("DealCommand ret=%d\r\n", ret);
                 if (ret > 0) {
                     ret = ExcuteCommand(ret);
                     if (ret != 0) {

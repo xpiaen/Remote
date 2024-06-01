@@ -166,7 +166,7 @@ public:
 		sockaddr_in clnt_addr;
 		int clnt_len = sizeof(clnt_addr);
 		m_client = accept(m_sock, (sockaddr*)&clnt_addr, &clnt_len);//TODO: 返回值处理3
-		TRACE("m_client = %d\r\n", m_client);
+		//TRACE("m_client = %d\r\n", m_client);
 		if (m_client == -1)return false;
 		return true;
 	}
@@ -186,7 +186,7 @@ public:
 				delete[] buffer;
 				return -1;
 			}
-			TRACE("recv len = %d\r\n", len);
+			//TRACE("recv len = %d\r\n", len);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
@@ -207,7 +207,7 @@ public:
 	}
 	bool Send(CPacket& pack) {
 		if (m_client == -1)return false;
-		Dump((BYTE*)pack.Data(), pack.Size());
+		//Dump((BYTE*)pack.Data(), pack.Size());
 		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
 	}
 	bool GetFilePath(std::string& strPath) {

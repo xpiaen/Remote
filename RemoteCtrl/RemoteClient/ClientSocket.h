@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+void Dump(BYTE* pData, size_t nSize);
+
 #pragma pack(push)
 #pragma pack(1)
 class CPacket {
@@ -56,6 +58,7 @@ public:
 		if (nLength > 4) {
 			strData.resize(nLength - 2 - 2);
 			memcpy((void*)strData.c_str(), pData + i, nLength - 2 - 2);
+			TRACE("strData = %s\r\n", strData.c_str() + 12);
 			i += nLength - 2 - 2;
 		}
 		sSum = *(WORD*)(pData + i);
@@ -174,18 +177,18 @@ public:
 	int  DealCommand() {
 		if (m_sock == -1)return -1;
 		char* buffer = m_buffer.data();
-		memset(buffer, 0, sizeof(buffer));
-		size_t index = 0;
+		static size_t index = 0;
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
-			if (len <= 0) {
+			if (len <= 0 && index == 0) {
 				return -1;
 			}
+			Dump((BYTE*)buffer, index);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
 			if (len > 0) {
-				memmove(buffer, buffer + len, BUFFER_SIZE - len);
+				memmove(buffer, buffer + len, index - len);
 				index -= len;
 				return m_packet.sCmd;
 			}
@@ -198,7 +201,7 @@ public:
 		return send(m_sock, pData, nSize, 0) > 0;
 	}
 	bool Send(CPacket& pack) {
-		TRACE("m_sock = %d\r\n", m_sock);
+		//TRACE("m_sock = %d\r\n", m_sock);
 		if (m_sock == -1)return false;
 		return send(m_sock, pack.Data(), pack.Size(), 0) > 0;
 	}
@@ -238,6 +241,7 @@ private:
 		}
 		//m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		m_buffer.resize(BUFFER_SIZE);
+		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 	~CClientSocket() {
 		closesocket(m_sock);
