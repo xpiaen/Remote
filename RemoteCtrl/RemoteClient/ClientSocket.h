@@ -180,10 +180,10 @@ public:
 		static size_t index = 0;
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
-			if (len <= 0 && index == 0) {
+			if (len <= 0 && index <= 0) {
 				return -1;
 			}
-			Dump((BYTE*)buffer, index);
+			//Dump((BYTE*)buffer, index);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
