@@ -25,6 +25,7 @@ CWatchDialog::~CWatchDialog()
 void CWatchDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_WATCH, m_picture);
 }
 
 
@@ -41,7 +42,7 @@ BOOL CWatchDialog::OnInitDialog()
 	CDialogEx::OnInitDialog();
 
 	// TODO:  在此添加额外的初始化
-	SetTimer(1, 50, NULL);
+	SetTimer(0, 45, NULL);
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -54,7 +55,14 @@ void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 	if (nIDEvent == 0) {
 		CRemoteClientDlg* pDlg = (CRemoteClientDlg*)GetParent();
 		if (pDlg->isFull()) {
-			
+			CRect rect;
+			m_picture.GetWindowRect(&rect);//获取图片的大小
+			//pDlg->getImage().BitBlt(m_picture.GetDC()->GetSafeHdc(),0,0,SRCCOPY);
+			//TRACE("rect.Width()=%d, rect.Height()=%d\n", rect.Width(), rect.Height());
+			pDlg->getImage().StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+			m_picture.InvalidateRect(NULL);
+			pDlg->getImage().Destroy();
+			pDlg->SetImageStatus();
 		}
 	}
 	CDialogEx::OnTimer(nIDEvent);

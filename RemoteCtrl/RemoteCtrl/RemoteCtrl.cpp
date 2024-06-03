@@ -249,12 +249,13 @@ int SendScreen() {
     int nWidth = GetDeviceCaps(hSctreen, HORZRES);
     int nHeight = GetDeviceCaps(hSctreen, VERTRES);
     screen.Create(nWidth, nHeight, nBitPerPixel);
-    BitBlt(screen.GetDC(), 0, 0, 1920, 1020, hSctreen, 0, 0, SRCCOPY);
+    //BitBlt(screen.GetDC(), 0, 0, 1920, 1020, hSctreen, 0, 0, SRCCOPY);
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    BitBlt(screen.GetDC(), 0, 0, screenWidth, screenHeight, hSctreen, 0, 0, SRCCOPY);
     ReleaseDC(NULL, hSctreen);
     HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
-    if (hMem == 0) {
-        return -1;
-    }
+    if (hMem == NULL)return -1;
     IStream* pStream = NULL;
     HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
     if (ret == S_OK) {
@@ -263,6 +264,7 @@ int SendScreen() {
         pStream->Seek(bg, STREAM_SEEK_SET, NULL);
         PBYTE pData = (PBYTE)GlobalLock(hMem);
         size_t nSize = GlobalSize(hMem);
+        //TRACE("=======================ScreenSize:%d\r\n", nSize);
         CPacket pack(6, pData, nSize);
         CServerSocket::getInstance()->Send(pack);
         GlobalUnlock(hMem);
@@ -430,7 +432,7 @@ int main()
                         TRACE("命令执行失败:%d ret = %d\r\n",pserver->GetPacket().sCmd, ret);
                     }
                     pserver->CloseClient();
-                    TRACE("CloseClient Has down\r\n");
+                    TRACE("CloseClient Has done\r\n");
                 }
             }
         }
