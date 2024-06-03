@@ -264,7 +264,7 @@ int SendScreen() {
         pStream->Seek(bg, STREAM_SEEK_SET, NULL);
         PBYTE pData = (PBYTE)GlobalLock(hMem);
         size_t nSize = GlobalSize(hMem);
-        //TRACE("=======================ScreenSize:%d\r\n", nSize);
+        TRACE("=======================ScreenSize:%d\r\n", nSize);
         CPacket pack(6, pData, nSize);
         CServerSocket::getInstance()->Send(pack);
         GlobalUnlock(hMem);
