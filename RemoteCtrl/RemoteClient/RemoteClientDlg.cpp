@@ -79,10 +79,7 @@ int CRemoteClientDlg::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, 
 	}
 	CPacket pack(nCmd, pData, nLength);
 	ret = pSock->Send(pack);
-	//TRACE("Send ret:%d\r\n", ret);
 	int cmd = pSock->DealCommand();
-	//TRACE("cmd:%d\r\n", cmd);
-	TRACE("ack:%d\r\n", pSock->GetPacket());
 	if(bAutoClose)pSock->CloseSocket();
 	return cmd;
 }
@@ -138,7 +135,7 @@ BOOL CRemoteClientDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	UpdateData();
-	m_server_address = 0x7F000001;
+	m_server_address = 0xC0A8BD8A;//192.168.189.138
 	m_nPort = _T("9527");
 	UpdateData(FALSE);
 	m_statusDlg.Create(IDD_DLG_STATUS,this);//创建下载进度对话框
@@ -257,13 +254,13 @@ void CRemoteClientDlg::threadEntryForWatchData(void* arg)
 }
 
 void CRemoteClientDlg::threadWatchData()
-{
+{//可能存在异步问题，导致线程退出
 	Sleep(50);
 	CClientSocket* pSock = NULL;
 	do {
 		pSock = CClientSocket::getInstance();
 	} while (pSock == NULL);
-	while (true) {
+	while (!m_isClosed) {
 		if (m_isFull == false) {//更新数据到缓存
 			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);//发送监视命令
 			if (ret == 6) {
@@ -281,6 +278,7 @@ void CRemoteClientDlg::threadWatchData()
 					pStream->Write(pData, pSock->GetPacket().strData.size(), &length);
 					LARGE_INTEGER bg = { 0 };
 					pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+					if((HBITMAP)m_image!=NULL)m_image.Destroy();//释放原来的位图
 					m_image.Load(pStream);
 					m_isFull = true;
 				}
@@ -529,9 +527,12 @@ LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)//实现消�
 
 void CRemoteClientDlg::OnBnClickedBtnStartWatch()
 {
+	m_isClosed = false;
 	CWatchDialog dlg(this);
-	_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);//启动监视线程
+	HANDLE hThread = (HANDLE)_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);//启动监视线程
 	dlg.DoModal();//显示监视对话框
+	m_isClosed = true;
+	WaitForSingleObject(hThread, 500);//等待监视线程退出
 }
 
 

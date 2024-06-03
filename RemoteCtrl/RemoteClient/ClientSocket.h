@@ -58,7 +58,7 @@ public:
 		if (nLength > 4) {
 			strData.resize(nLength - 2 - 2);
 			memcpy((void*)strData.c_str(), pData + i, nLength - 2 - 2);
-			TRACE("strData = %s\r\n", strData.c_str() + 12);
+			//TRACE("strData = %s\r\n", strData.c_str() + 12);
 			i += nLength - 2 - 2;
 		}
 		sSum = *(WORD*)(pData + i);
