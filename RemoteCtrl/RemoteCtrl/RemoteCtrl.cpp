@@ -188,6 +188,7 @@ int MouseEvent() {
         default:
             break;
         }
+        TRACE("nFlags:%08X x:%d y:%d\r\n", nFlags, mouse.ptXY.x, mouse.ptXY.y);
         switch (nFlags) {
         case 0x21://左键双击
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
@@ -264,13 +265,12 @@ int SendScreen() {
         pStream->Seek(bg, STREAM_SEEK_SET, NULL);
         PBYTE pData = (PBYTE)GlobalLock(hMem);
         size_t nSize = GlobalSize(hMem);
-        TRACE("=======================ScreenSize:%d\r\n", nSize);
+        //TRACE("=======================ScreenSize:%d\r\n", nSize);
+        //TRACE("width:%d height:%d\r\n",screenWidth, screenHeight);
         CPacket pack(6, pData, nSize);
         CServerSocket::getInstance()->Send(pack);
         GlobalUnlock(hMem);
     }
-    //screen.Save(_T("test2024.png"), Gdiplus::ImageFormatPNG);//验证图片保存是否成功
-    //screen.Save(_T("test2024.jpg"), Gdiplus::ImageFormatJPEG);
     pStream->Release();
     GlobalFree(hMem);
     screen.ReleaseDC();
