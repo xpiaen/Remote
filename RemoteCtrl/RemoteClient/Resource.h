@@ -19,8 +19,10 @@
 #define IDC_BTN_FILEINFO                1013
 #define IDC_EDIT_INFO                   1015
 #define IDC_BTN_START_WATCH             1016
-#define IDC_                            1017
 #define IDC_WATCH                       1018
+#define IDC_BTN_LOCK                    1019
+#define IDC_BUTTON2                     1020
+#define IDC_BTN_UNLOCK                  1020
 #define ID_32771                        32771
 #define ID_32772                        32772
 #define ID_32773                        32773
@@ -35,7 +37,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        135
 #define _APS_NEXT_COMMAND_VALUE         32778
-#define _APS_NEXT_CONTROL_VALUE         1019
+#define _APS_NEXT_CONTROL_VALUE         1021
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

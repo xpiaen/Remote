@@ -291,15 +291,25 @@ unsigned __stdcall threadLockDlg(void* arg) {
     rect.top = 0;
     rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
     rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
-    rect.bottom = LONG(rect.bottom * 1.03);
+    rect.bottom = LONG(rect.bottom * 1.10);
     TRACE("right:%d bottom:%d\r\n", rect.right, rect.bottom);
     dlg.MoveWindow(rect);
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    if (pText) {
+        CRect rcText;
+        pText->GetWindowRect(&rcText);
+        int rcTextWidth = rcText.Width();//获取文本宽度
+        int rcTextHeight = rcText.Height();//获取文本高度
+        int x = (rect.right - rcTextWidth) / 2;
+        int y = (rect.bottom - rcTextHeight) / 2;
+        pText->MoveWindow(x, y, rcTextWidth, rcTextHeight);
+    }
     //设置窗口置顶
-    //dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     //限制鼠标功能
     ShowCursor(false);//隐藏鼠标
     ::ShowWindow(::FindWindow(_T("Shell_Traywnd"), NULL), SW_HIDE);//隐藏任务栏
-    //dlg.GetWindowRect(&rect);//获取窗口位置
+    dlg.GetWindowRect(&rect);//获取窗口位置
     rect.left = 0;
     rect.top = 0;
     rect.right = 1;
@@ -316,8 +326,9 @@ unsigned __stdcall threadLockDlg(void* arg) {
             }
         }
     }
+    ClipCursor(NULL);//恢复鼠标活动范围
     ShowCursor(true);//显示鼠标
-    ::ShowWindow(::FindWindow(_T("Shell_Traywnd"), NULL), SW_SHOW);//隐藏任务栏
+    ::ShowWindow(::FindWindow(_T("Shell_Traywnd"), NULL), SW_SHOW);//显示任务栏
     dlg.DestroyWindow();
    _endthreadex(0);
    return 0;
