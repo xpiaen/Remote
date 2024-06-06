@@ -252,7 +252,7 @@ private:
 		closesocket(m_sock);
 		WSACleanup();
 	}
-	BOOL InitSockEnv() {
+	bool InitSockEnv() {
 		WSAData data;
 		if (WSAStartup(MAKEWORD(1, 1), &data) != 0) {
 			// 初始化失败，处理错误
