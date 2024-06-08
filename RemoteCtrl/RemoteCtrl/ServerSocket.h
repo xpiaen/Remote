@@ -1,8 +1,9 @@
 #pragma once
 #include "pch.h"
 #include "framework.h"
+#include "EdoyunTools.h"
 
-void Dump(BYTE* pData, size_t nSize);
+//void Dump(BYTE* pData, size_t nSize);
 
 #pragma pack(push)
 #pragma pack(1)
