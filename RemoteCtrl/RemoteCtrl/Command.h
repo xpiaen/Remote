@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <io.h>
 #include <list>
-
 #include "LockDialog.h"
 
 class CCommand
