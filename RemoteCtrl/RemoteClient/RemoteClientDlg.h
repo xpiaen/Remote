@@ -37,28 +37,11 @@ private:
 	bool m_isFull;//缓存是否有数据 true 有数据 false 无数据
 	bool m_isClosed;//监视界面是否关闭
 private:
-	static void threadEntryForWatchData(void *arg);
-	void threadWatchData();
-	static void threadEntryForDownFile(void *arg);
-	void threadDownFile();
 	void LoadFileCurrent();
 	void LoadFileInfo();
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 	CString CRemoteClientDlg::GetPath(HTREEITEM hTree);
-	//1 查看磁盘分区
-	//2 查看指定目录下的文件
-	//3 打开文件
-	//4 下载文件
-	//5 鼠标操作
-	//6 发送屏幕内容
-	//7 锁机
-	//8 解锁
-	//9 删除文件
-	//1981 测试连接
-	//返回值：是命令号，如果小于0，则出错
-	int SendCommandPacket(int nCmd,bool bAutoClose = true ,BYTE* pData = NULL, size_t nLength = 0);
-
-// 实现
+	
 protected:
 	HICON m_hIcon;
 	CStatusDlg m_statusDlg;
@@ -86,4 +69,6 @@ public:
 	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);//定义自定义消息响应函数②
 	afx_msg void OnBnClickedBtnStartWatch();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnEnChangeEditProt();
 };
