@@ -58,6 +58,7 @@ CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 	, m_nPort(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	m_isClosed = true;
 }
 
 void CRemoteClientDlg::DoDataExchange(CDataExchange* pDX)
@@ -81,7 +82,6 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemoteClientDlg::OnDownloadFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
-	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::OnSendPacket)//注册消息处理函数③
 	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemoteClientDlg::OnBnClickedBtnStartWatch)
 	ON_WM_TIMER()
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServ)
@@ -129,7 +129,6 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	UpdateData(FALSE);
 	m_statusDlg.Create(IDD_DLG_STATUS,this);//创建下载进度对话框
 	m_statusDlg.ShowWindow(SW_HIDE);
-	m_isFull = false;
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -283,7 +282,7 @@ void CRemoteClientDlg::LoadFileInfo()
 			if (CString(pFileInfo->szFileName) == "." || CString(pFileInfo->szFileName) == "..")
 			{
 				int cmd = CClientSocket::getInstance()->DealCommand();
-				TRACE("ack:%d\r\n", CClientSocket::getInstance()->GetPacket());
+				//TRACE("ack:%d\r\n", CClientSocket::getInstance()->GetPacket());
 				if (cmd < 0)break;
 				pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 				continue;
@@ -300,7 +299,7 @@ void CRemoteClientDlg::LoadFileInfo()
 		if (cmd < 0)break;
 		pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	}
-	TRACE("Count:%d\r\n", Count);
+	//TRACE("Count:%d\r\n", Count);
 	CClientSocket::getInstance()->CloseSocket();
 }
 
@@ -384,37 +383,6 @@ void CRemoteClientDlg::OnRunFile()
 		AfxMessageBox("执行打开文件命令失败！！！");
 	}
 }
-
-LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)//实现消息响应函数④
-{
-	int ret = 0;
-	int cmd = wParam >> 1;
-	switch (cmd) {
-	case 4:
-	{
-		CString strPath = (LPCSTR)lParam;
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
-	}
-		break;
-	case 5://鼠标操作`
-	{
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
-	}
-		break;
-	case 6:
-	case 7:
-	case 8:
-	{
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
-	}
-		break;
-	default:
-		ret = -1;
-		break;
-	}
-	return ret;
-}
-
 
 void CRemoteClientDlg::OnBnClickedBtnStartWatch()
 {
