@@ -90,21 +90,14 @@ public:
 	int Size() {//包数据大小
 		return nLength + 2 + 4;
 	}
-	const char* Data(std::string& strOut) const{
+	const char* Data(std::string& strOut)const{
 		strOut.resize(nLength + 2 + 4);
 		BYTE* pData = (BYTE*)strOut.c_str();
-		*(WORD*)pData = sHead;
-		pData += 2;
-		*(DWORD*)(pData) = nLength;
-		pData += 4;
-		*(WORD*)(pData) = sCmd;
-		pData += 2;
-		if (strData.size() > 0) {
-			memcpy(pData, strData.c_str(), strData.size());
-			pData += strData.size();
-		}
+		*(WORD*)pData = sHead; pData += 2;
+		*(DWORD*)(pData) = nLength; pData += 4;
+		*(WORD*)pData = sCmd; pData += 2;
+		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
 		*(WORD*)(pData) = sSum;
-		pData += 2;
 		return strOut.c_str();
 	}
 public:
@@ -198,25 +191,8 @@ public:
 		return -1;
 	}
 
-	bool SendPacket(const CPacket& pack,std::list<CPacket>& listPacks) {
-		if (m_sock == INVALID_SOCKET) {
-			if (!InitSocket())return false;
-			_beginthread(&CClientSocket::threadEntry, 0, this);
-		}
-		m_listSend.push_back(pack);
-		WaitForSingleObject(pack.hEvent, INFINITE);
-		std::map<HANDLE, std::list<CPacket>>::iterator it;
-		it = m_mapAck.find(pack.hEvent);
-		if (it != m_mapAck.end()) {
-			std::list<CPacket>::iterator i;
-			for (i = it->second.begin(); i != it->second.end(); i++) {
-				listPacks.push_back(*i);
-			}
-			m_mapAck.erase(it);
-			return true;
-		}
-		return false;
-	}
+	bool SendPacket(const CPacket& pack, std::list<CPacket>& listPacks, bool isAutoClosed = true);
+
 	bool GetFilePath(std::string& strPath) {
 		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
 			strPath = m_packet.strData;
@@ -245,8 +221,10 @@ public:
 		}
 	}
 private:
+	bool m_bAutoClose;
 	std::list<CPacket>m_listSend;
 	std::map<HANDLE, std::list<CPacket>> m_mapAck;
+	std::map<HANDLE, bool>m_mapAutoClosed;
 	int m_nIP;
 	int m_nPort;
 	std::vector<char> m_buffer;
@@ -254,11 +232,12 @@ private:
 	SOCKET m_sock;
 	CClientSocket& operator=(const CClientSocket& ss) {}
 	CClientSocket(const CClientSocket& ss){
+		m_bAutoClose = ss.m_bAutoClose;
 		m_sock = ss.m_sock;
 		m_nIP = ss.m_nIP;
 		m_nPort = ss.m_nPort;
 	}
-	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET)  {
+	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET),m_bAutoClose(true){
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置!"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
 			exit(0);
@@ -269,6 +248,7 @@ private:
 	}
 	~CClientSocket() {
 		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
 	static void threadEntry(void* arg);

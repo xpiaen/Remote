@@ -242,18 +242,18 @@ void CRemoteClientDlg::LoadFileCurrent()
 	m_List.DeleteAllItems();
 	int mCmd = CClientController::getInstance()->SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
 	PFILEINFO pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
-	//CClientSocket* pSock = CClientSocket::getInstance();
+	//CClientSocket* pSock = CClientController::getInstance();
 	while (pFileInfo->HasNext) {
 		TRACE("FileName:[%s] isdir:%d\r\n", pFileInfo->szFileName, pFileInfo->IsDirectory);
 		if (!pFileInfo->IsDirectory) {
 			m_List.InsertItem(0, pFileInfo->szFileName);//插入文件名
 		}
-		int cmd = CClientSocket::getInstance()->DealCommand();
+		int cmd = CClientController::getInstance()->DealCommand();
 		TRACE("ack:%d\r\n", CClientSocket::getInstance()->GetPacket());
 		if (cmd < 0)break;
 		pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	}
-	CClientSocket::getInstance()->CloseSocket();
+	//CClientController::getInstance()->CloseSocket();
 }
 
 void CRemoteClientDlg::LoadFileInfo()
@@ -274,15 +274,15 @@ void CRemoteClientDlg::LoadFileInfo()
 	//TRACE("path:%s\r\n", strPath);
 	int mCmd = CClientController::getInstance()->SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
 	PFILEINFO pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
-	//CClientSocket* pSock = CClientSocket::getInstance();
+	//CClientSocket* pSock = CClientController::getInstance();
 	int Count = 0;
 	while (pFileInfo->HasNext) {
 		//TRACE("FileName:[%s] isdir:%d\r\n", pFileInfo->szFileName, pFileInfo->IsDirectory);
 		if (pFileInfo->IsDirectory) {
 			if (CString(pFileInfo->szFileName) == "." || CString(pFileInfo->szFileName) == "..")
 			{
-				int cmd = CClientSocket::getInstance()->DealCommand();
-				//TRACE("ack:%d\r\n", CClientSocket::getInstance()->GetPacket());
+				int cmd = CClientController::getInstance()->DealCommand();
+				//TRACE("ack:%d\r\n", CClientController::getInstance()->GetPacket());
 				if (cmd < 0)break;
 				pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 				continue;
@@ -294,13 +294,13 @@ void CRemoteClientDlg::LoadFileInfo()
 			m_List.InsertItem(0, pFileInfo->szFileName);//插入文件名
 		}
 		Count++;
-		int cmd = CClientSocket::getInstance()->DealCommand();
+		int cmd = CClientController::getInstance()->DealCommand();
 		//TRACE("ack:%d\r\n", pSock->GetPacket());
 		if (cmd < 0)break;
 		pFileInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	}
 	//TRACE("Count:%d\r\n", Count);
-	CClientSocket::getInstance()->CloseSocket();
+	//CClientController::getInstance()->CloseSocket();
 }
 
 

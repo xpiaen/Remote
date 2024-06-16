@@ -54,9 +54,6 @@ CPoint CWatchDialog::UserPoint2RemoteScreenPoint(CPoint& point,bool isScreen)
 	CRect clientRect;
 	if(isScreen)ScreenToClient(&point);//将屏幕坐标转换为客户区坐标
 	m_picture.GetWindowRect(&clientRect);
-	//TRACE("clientRect.Width()=%d, clientRect.Height()=%d\n", clientRect.Width(), clientRect.Height());
-	//TRACE("point.x=%d, point.y=%d\n", point.x, point.y);
-	//TRACE("m_nObjWidth=%d, m_nObjHeight=%d\n", m_nObjWidth, m_nObjHeight);
 	
 	return CPoint((point.x * m_nObjWidth / clientRect.Width()), (((point.y * m_nObjHeight)) / clientRect.Height()));
 }
@@ -80,19 +77,14 @@ void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 		CClientController* pCtrl = CClientController::getInstance();
 		if (m_isFull) {
 			CRect rect;
-			m_picture.GetWindowRect(&rect);//获取图片的大小
-			CImage image;
-			pCtrl->GetImage(image);
-			if (m_nObjWidth == -1) {
-				m_nObjWidth = image.GetWidth();
-			}
-			if (m_nObjHeight == -1) {
-				m_nObjHeight = image.GetHeight();
-			}
-			image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+			m_picture.GetWindowRect(rect);//获取图片的大小
+			m_nObjWidth = m_image.GetWidth();
+			m_nObjHeight = m_image.GetHeight();
+			m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
 			m_picture.InvalidateRect(NULL);
-			image.Destroy();
+			m_image.Destroy();
 			m_isFull = false;
+			TRACE("更新图片完成%d %d\r\n", m_nObjWidth, m_nObjHeight);
 		}
 	}
 	CDialogEx::OnTimer(nIDEvent);

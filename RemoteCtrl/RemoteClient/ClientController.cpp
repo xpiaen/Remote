@@ -50,18 +50,27 @@ LRESULT CClientController::SendMessage(MSG msg)
 
 int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, int nLength, std::list<CPacket>* plistPacks)
 {
+	//TRACE("cmd：%d %s start %lld\r\n", nCmd,__FUNCTION__,GetTickCount64());
 	CClientSocket* pSocket = CClientSocket::getInstance();
 	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (hEvent == NULL) {
+		TRACE("创建事件句柄失败！\r\n");
+		return -2;
+	}
 	//TODO:不应该直接发送，而是投入队列
 	std::list<CPacket> listPacks;//应答结果包
-	if (plistPacks == NULL) {
-		plistPacks = &listPacks;
+	bool bRet = pSocket->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plistPacks);
+	if (bRet == false) {
+		TRACE("发送命令包失败！\r\n");
+		CloseHandle(hEvent);
+		return -3;
 	}
-	pSocket->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plistPacks);
+	CloseHandle(hEvent);//回收事件句柄，防止资源耗尽
 	if (plistPacks->size() > 0) {
 		TRACE("收到应答包：%d\r\n", plistPacks->front().sCmd);
 		return plistPacks->front().sCmd;
 	}
+	//TRACE("cmd：%d %s start %lld\r\n", nCmd, __FUNCTION__, GetTickCount64());
 	return -1;
 }
 
@@ -102,7 +111,8 @@ void CClientController::threadWatchScreen()
 			std::list<CPacket> listPacks;
 			int ret = SendCommandPacket(6,true,NULL,0,&listPacks);
 			if (ret == 6) {
-				if (CEdoyunTools::Bytes2Image(m_remoteDlg.getImage(), listPacks.front().strData) == 0) {
+				if (CEdoyunTools::Bytes2Image(m_watchDlg.getImage(), listPacks.front().strData) == 0) {
+					TRACE("获取图片成功！\r\n");
 					m_watchDlg.SetImageStatus(true);
 				}
 				else {
