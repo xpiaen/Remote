@@ -10,7 +10,7 @@
 #pragma pack(1)
 class CPacket {
 public:
-	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0),hEvent(INVALID_HANDLE_VALUE) {}
 	CPacket(WORD ncmd, const BYTE* pData, size_t nSize,HANDLE hEvent) {
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
@@ -198,15 +198,24 @@ public:
 		return -1;
 	}
 
-	bool Send(const char* pData, size_t nSize) {
-		if (m_sock == -1)return false;
-		return send(m_sock, pData, nSize, 0) > 0;
-	}
-	bool Send(const CPacket& pack) {
-		if (m_sock == -1)return false;
-		std::string strData;
-		pack.Data(strData);
-		return send(m_sock, strData.c_str(), strData.size(), 0) > 0;
+	bool SendPacket(const CPacket& pack,std::list<CPacket>& listPacks) {
+		if (m_sock == INVALID_SOCKET) {
+			if (!InitSocket())return false;
+			_beginthread(&CClientSocket::threadEntry, 0, this);
+		}
+		m_listSend.push_back(pack);
+		WaitForSingleObject(pack.hEvent, INFINITE);
+		std::map<HANDLE, std::list<CPacket>>::iterator it;
+		it = m_mapAck.find(pack.hEvent);
+		if (it != m_mapAck.end()) {
+			std::list<CPacket>::iterator i;
+			for (i = it->second.begin(); i != it->second.end(); i++) {
+				listPacks.push_back(*i);
+			}
+			m_mapAck.erase(it);
+			return true;
+		}
+		return false;
 	}
 	bool GetFilePath(std::string& strPath) {
 		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
@@ -230,8 +239,10 @@ public:
 		m_sock = INVALID_SOCKET;
 	}
 	void UpdateAddress(int nIP, int nPort) {
-		m_nIP = nIP;
-		m_nPort = nPort;
+		if ((m_nIP != nIP) || (m_nPort != nPort)) {
+			m_nIP = nIP;
+			m_nPort = nPort;
+		}
 	}
 private:
 	std::list<CPacket>m_listSend;
@@ -247,7 +258,7 @@ private:
 		m_nIP = ss.m_nIP;
 		m_nPort = ss.m_nPort;
 	}
-	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0)  {
+	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET)  {
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置!"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
 			exit(0);
@@ -277,6 +288,11 @@ private:
 			delete tmp;
 		}
 	}
+	bool Send(const char* pData, size_t nSize) {
+		if (m_sock == -1)return false;
+		return send(m_sock, pData, nSize, 0) > 0;
+	}
+	bool Send(const CPacket& pack);
 	static CClientSocket* m_instance;
 	class CHelper {
 	public:

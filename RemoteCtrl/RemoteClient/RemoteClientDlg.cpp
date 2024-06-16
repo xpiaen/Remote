@@ -125,7 +125,7 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	m_server_address = 0xC0A8BD8A;//192.168.189.138
 	m_nPort = _T("9527");
 	CClientController* pCtrl = CClientController::getInstance();
-	pCtrl->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
+	pCtrl->UpdateAddress(static_cast<int>(m_server_address), atoi((LPCTSTR)m_nPort));
 	UpdateData(FALSE);
 	m_statusDlg.Create(IDD_DLG_STATUS,this);//创建下载进度对话框
 	m_statusDlg.ShowWindow(SW_HIDE);

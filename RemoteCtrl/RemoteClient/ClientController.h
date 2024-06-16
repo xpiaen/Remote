@@ -8,8 +8,6 @@
 #include "EdoyunTools.h"
 #include <map>
 
-#define WM_SEND_PACK (WM_USER + 1)//发送包数据
-#define WM_SEND_DATA (WM_USER + 2)//发送数据
 #define WM_SHOW_STATUS (WM_USER + 3)//显示状态
 #define WM_SHOW_WATCH (WM_USER + 4)//远程监控
 #define WM_SEND_MESSAGE (WM_USER + 0x1000)//自定义消息处理
@@ -32,11 +30,6 @@ public:
 	void CloseSocket() {//关闭套接字
 		CClientSocket::getInstance()->CloseSocket();
 	}
-	bool SendPacket(const CPacket& pack) {
-		CClientSocket* pSocket = CClientSocket::getInstance();
-		if (pSocket->InitSocket() == false)return false;
-		return pSocket->Send(pack);
-	}
 	//1 查看磁盘分区
 	//2 查看指定目录下的文件
 	//3 打开文件
@@ -49,7 +42,7 @@ public:
 	//1981 测试连接
 	//返回值：是命令号，如果小于0，则出错
     // 实现
-	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, int nLength = 0);
+	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, int nLength = 0, std::list<CPacket>* plistPacks = NULL);
 	int GetImage(CImage& img) {
 		CClientSocket* pSock = CClientSocket::getInstance();
 		return CEdoyunTools::Bytes2Image(img, pSock->GetPacket().strData);
@@ -67,7 +60,6 @@ protected:
 		m_ThreadWatch = INVALID_HANDLE_VALUE;
 		m_isClosed = true;
 		m_nThreadID = -1;
-		m_mapFunc[WM_SEND_PACK] = &CClientController::OnSendPack;
 	}
 	~CClientController() {
 		WaitForSingleObject(m_hThread, INFINITE);//等待线程结束,防止线程泄漏
@@ -80,8 +72,6 @@ protected:
 			m_instance = nullptr;
 		}
 	}
-	LRESULT OnSendPack(UINT uMsg, WPARAM wParam, LPARAM lParam);
-	LRESULT OnSendData(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	LRESULT OnShowStatus(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	LRESULT OnShowWatch(UINT uMsg, WPARAM wParam, LPARAM lParam);
 private:
