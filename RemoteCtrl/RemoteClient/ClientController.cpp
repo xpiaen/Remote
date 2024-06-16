@@ -54,7 +54,9 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData,
 {
 	CClientSocket* pSocket = CClientSocket::getInstance();
 	if (pSocket->InitSocket() == false)return false;
-	pSocket->Send(CPacket(nCmd, pData, nLength));
+	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	//TODO:不应该直接发送，而是投入队列
+	pSocket->Send(CPacket(nCmd, pData, nLength, hEvent));
 	int cmd = DealCommand();
 	if (bAutoClose)CloseSocket();
 	return cmd;

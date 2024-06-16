@@ -23,14 +23,43 @@ std::string GetErrorInfo(int wsaErrCode)
 	return ret;
 }
 
-void Dump(BYTE* pData, size_t nSize) {
-	std::string strOut;
-	for (size_t i = 0; i < nSize; i++) {
-		char buf[8] = "";
-		if (i > 0 && (i % 16 == 0))strOut += "\n";
-		snprintf(buf, sizeof(buf), "%02X ", pData[i] & 0xFF);
-		strOut += buf;
+void CClientSocket::threadEntry(void* arg)
+{
+	CClientSocket* pserver = (CClientSocket*)arg;
+	pserver->threadFunc();
+
+}
+
+void CClientSocket::threadFunc()
+{
+	if (InitSocket() == false)return;
+	std::string strBuffer;
+	strBuffer.resize(BUFFER_SIZE);
+	char* pBuffer = (char*)strBuffer.c_str();
+	int index = 0;
+	while (m_sock != INVALID_SOCKET) {
+		if (m_listSend.size() > 0) {
+			CPacket& head = m_listSend.front();
+			if (Send(head) == false) {
+				TRACE("发送失败");
+				continue;
+			}
+			auto pr = m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>>(head.hEvent, std::list<CPacket>()));
+			int length = recv(m_sock, pBuffer, BUFFER_SIZE - index, 0);
+			if (length > 0 || index > 0) {
+				index += length;
+				size_t size = (size_t)index;
+				CPacket pack((BYTE*)pBuffer, size);
+				if (size > 0) {//TODO:对于文件夹信息获取，文件信息获取，需要进行处理
+					pack.hEvent = head.hEvent;
+					pr.first->second.push_back(pack);
+					SetEvent(head.hEvent);
+				}
+			}
+			else if (length <= 0 && index <= 0) {
+				CloseSocket();
+			}
+			m_listSend.pop_front();
+		}
 	}
-	strOut += '\n';
-	OutputDebugStringA(strOut.c_str());
 }
