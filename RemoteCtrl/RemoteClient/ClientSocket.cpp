@@ -1,11 +1,9 @@
 #include "pch.h"
 #include "ClientSocket.h"
 
-
+//std::map<UINT, CClientSocket::MSGFUNC> CClientSocket::m_mapFunc;//静态成员变量
 CClientSocket* CClientSocket::m_instance = nullptr;
-
 CClientSocket::CHelper CClientSocket::m_helper;
-
 CClientSocket* pserver = CClientSocket::getInstance();
 
 std::string GetErrorInfo(int wsaErrCode)
@@ -21,6 +19,14 @@ std::string GetErrorInfo(int wsaErrCode)
 	ret = (char*)lpMsgBuf;
 	LocalFree(lpMsgBuf);
 	return ret;
+}
+
+CClientSocket* CClientSocket::getInstance()
+{
+	if (m_instance == nullptr) {//静态函数没有this指针，只能用类名调用静态成员函数
+		m_instance = new CClientSocket();
+	}
+	return m_instance;
 }
 
 bool CClientSocket::InitSocket()
@@ -64,7 +70,9 @@ bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& listPack
 	std::map<HANDLE, std::list<CPacket>&>::iterator it;
 	it = m_mapAck.find(pack.hEvent);
 	if (it != m_mapAck.end()) {
+		m_lock.lock();
 		m_mapAck.erase(it);
+		m_lock.unlock();
 		return true;
 	}
 	return false;
@@ -116,13 +124,19 @@ void CClientSocket::threadFunc()
 					else if (length <= 0 && index <= 0) {
 						CloseSocket();
 						SetEvent(head.hEvent);//等到服务器关闭命令之后，再通知事件完成
-						m_mapAutoClosed.erase(it0);
+						if (it0 != m_mapAutoClosed.end()) {
+							TRACE("SetEvent %d %d\r\n", head.sCmd, it0->second);
+						}
+						else {
+							TRACE("异常情况，未找到对应的pair\r\n");
+						}
 						break;
 					}
 				} while (it0->second == false);
 			}
 			m_lock.lock();
 			m_listSend.pop_front();
+			m_mapAutoClosed.erase(head.hEvent);
 			m_lock.unlock();
 			if (InitSocket() == false) {
 				InitSocket();
@@ -133,10 +147,38 @@ void CClientSocket::threadFunc()
 	CloseSocket();
 }
 
+void CClientSocket::threadFunc2()
+{
+	MSG msg;
+	while (::GetMessage(&msg, NULL, 0, 0)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+		if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
+			(this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
+		}
+	}
+}
+
 bool CClientSocket::Send(const CPacket& pack)
 {
 	if (m_sock == -1)return false;
 	std::string strOut;
 	pack.Data(strOut);
 	return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
+}
+
+void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
+{//定义一个消息的数据结构(数据和数据长度，模式) 回调消息的数据结构(HWND MESSAGE)
+	if (InitSocket() == true) {
+		int ret = send(m_sock, (char*)&nMsg, (int)lParam, 0);
+		if (ret > 0) {
+
+		}
+		else {
+			CloseSocket();
+		}
+	}
+	else{
+		//TODO:错误处理
+	}
 }

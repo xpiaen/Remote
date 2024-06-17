@@ -138,15 +138,13 @@ typedef struct file_info {
 
 std::string GetErrorInfo(int wsaErrCode);
 
+
+#define WM_SEND_PACK (WM_USER+1);//发送数据包
+
 class CClientSocket
 {
 public:
-	static CClientSocket* getInstance() {
-		if (m_instance == NULL) {//静态函数没有this指针，只能用类名调用静态成员函数
-			m_instance = new CClientSocket();
-		}
-		return m_instance;
-	}
+	static CClientSocket* getInstance();
 	bool InitSocket();
 
 #define BUFFER_SIZE 3000000
@@ -200,7 +198,11 @@ public:
 			m_nPort = nPort;
 		}
 	}
+protected:
+	void SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
 private:
+	typedef void(CClientSocket::* MSGFUNC)(UINT uMsg, WPARAM wParam, LPARAM lParam);
+	static std::map<UINT, MSGFUNC> m_mapFunc;
 	HANDLE m_hThread;
 	bool m_bAutoClose;
 	std::mutex m_lock;
@@ -212,15 +214,26 @@ private:
 	std::vector<char> m_buffer;
 	CPacket m_packet;
 	SOCKET m_sock;
-	CClientSocket& operator=(const CClientSocket& ss) {}
-	CClientSocket(const CClientSocket& ss){
+	CClientSocket& operator=(const CClientSocket& ss) { return *this; }
+	CClientSocket(const CClientSocket& ss) {
+		m_hThread = INVALID_HANDLE_VALUE;
 		m_bAutoClose = ss.m_bAutoClose;
 		m_sock = ss.m_sock;
 		m_nIP = ss.m_nIP;
 		m_nPort = ss.m_nPort;
-		m_hThread = ss.m_hThread;
+		struct { UINT message; MSGFUNC func; }funcs[] =
+		{
+			{WM_USER + 1, &CClientSocket::SendPack},
+			{0,NULL}
+		};
+		for (int i = 0; funcs[i].message != 0; i++) {
+			if (m_mapFunc.insert(std::pair<UINT, MSGFUNC>(funcs[i].message, funcs[i].func)).second == false) {
+				TRACE("插入失败，消息值：%d 函数值：%08X 序号：%d\r\n", funcs[i].message, funcs[i].func, i);
+			}
+		}
 	}
-	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET),m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE) {
+	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET),m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE)
+	{
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置!"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
 			exit(0);
@@ -228,6 +241,7 @@ private:
 		//m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		m_buffer.resize(BUFFER_SIZE);
 		memset(m_buffer.data(), 0, BUFFER_SIZE);
+
 	}
 	~CClientSocket() {
 		closesocket(m_sock);
@@ -236,6 +250,7 @@ private:
 	}
 	static void threadEntry(void* arg);
 	void threadFunc();
+	void threadFunc2();
 	BOOL InitSockEnv() {
 		WSAData data;
 		if (WSAStartup(MAKEWORD(1, 1), &data) != 0) {
