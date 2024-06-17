@@ -48,27 +48,11 @@ LRESULT CClientController::SendMessage(MSG msg)
 	return info.result;
 }
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClosed, BYTE* pData, int nLength, std::list<CPacket>* plistPacks)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClosed, BYTE* pData, int nLength)
 {
 	TRACE("cmd：%d %s start %lld\r\n", nCmd,__FUNCTION__,GetTickCount64());
 	CClientSocket* pSocket = CClientSocket::getInstance();
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (hEvent == NULL) {
-		TRACE("创建事件句柄失败！\r\n");
-		return -2;
-	}
-	std::list<CPacket> listPacks;//应答结果包
-	if (plistPacks == NULL) {
-		plistPacks = &listPacks;
-	}
-	pSocket->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plistPacks,bAutoClosed);
-	CloseHandle(hEvent);//回收事件句柄，防止资源耗尽
-	if (plistPacks->size() > 0) {
-		TRACE("收到应答包：%d\r\n", plistPacks->front().sCmd);
-		return plistPacks->front().sCmd;
-	}
-	TRACE("cmd：%d %s start %lld\r\n", nCmd, __FUNCTION__, GetTickCount64());
-	return -1;
+	return pSocket->SendPacket(hWnd,CPacket(nCmd, pData, nLength),bAutoClosed);
 }
 
 int CClientController::DownFile(CString strPath)
@@ -105,10 +89,12 @@ void CClientController::threadWatchScreen()
 	Sleep(50);
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {//更新数据到缓存
-			std::list<CPacket> listPacks;
-			int ret = SendCommandPacket(6,true,NULL,0,&listPacks);
+			std::string strData;
+			int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6,true,NULL,0);
+			//TODO:添加消息响应函数WM_SEND_PACK_ACK
+			//TODO:控制发送频率
 			if (ret == 6) {
-				if (CEdoyunTools::Bytes2Image(m_watchDlg.getImage(), listPacks.front().strData) == 0) {
+				if (CEdoyunTools::Bytes2Image(m_watchDlg.getImage(),strData) == 0) {
 					TRACE("获取图片成功！\r\n");
 					m_watchDlg.SetImageStatus(true);
 				}
@@ -143,9 +129,7 @@ void CClientController::threadDownloadFile()
 	}
 	CClientSocket* pSock = CClientSocket::getInstance();
 	do {
-		//std::list<CPacket> listPacks;
-		//int ret = SendCommandPacket(6, true, NULL, 0, &listPacks);
-		int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
 		if (ret < 0) {
 			AfxMessageBox("执行下载命令失败！！！");
 			TRACE("执行下载失败： ret:%d\r\n", ret);

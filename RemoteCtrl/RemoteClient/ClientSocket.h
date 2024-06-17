@@ -7,12 +7,14 @@
 #include <map>
 #include <mutex>
 
+#define WM_SEND_PACK (WM_USER + 1)//发送数据包
+#define WM_SEND_PACK_ACK (WM_USER + 2)//发送包数据应答
 #pragma pack(push)
 #pragma pack(1)
 class CPacket {
 public:
-	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0),hEvent(INVALID_HANDLE_VALUE) {}
-	CPacket(WORD ncmd, const BYTE* pData, size_t nSize,HANDLE hEvent) {
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0){}
+	CPacket(WORD ncmd, const BYTE* pData, size_t nSize) {
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
 		sCmd = ncmd;
@@ -27,7 +29,6 @@ public:
 		for (size_t i = 0; i < strData.size(); i++) {
 			sSum += BYTE(strData[i]) & 0xFF;
 		}
-		this->hEvent = hEvent;
 	}
 	CPacket(const CPacket& packet) {
 		sHead = packet.sHead;
@@ -35,9 +36,8 @@ public:
 		sCmd = packet.sCmd;
 		strData = packet.strData;
 		sSum = packet.sSum;
-		this->hEvent = packet.hEvent;
 	}
-	CPacket(const BYTE* pData, size_t& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0),hEvent(INVALID_HANDLE_VALUE) {
+	CPacket(const BYTE* pData, size_t& nSize):sHead(0), nLength(0), sCmd(0), sSum(0) {
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -84,7 +84,6 @@ public:
 			sCmd = packet.sCmd;
 			strData = packet.strData;
 			sSum = packet.sSum;
-			this->hEvent = packet.hEvent;
 		}
 		return *this;;
 	}
@@ -107,7 +106,6 @@ public:
 	WORD sCmd;//控制命令
 	std::string strData;//包数据
 	WORD sSum;//和校验
-	HANDLE hEvent;
 };
 #pragma pack(pop)
 
@@ -136,10 +134,32 @@ typedef struct file_info {
 	char szFileName[256];//文件名
 }FILEINFO, * PFILEINFO;
 
+enum {
+	CSM_AUTOCLOSE = 1,//CSM=Client Socket Mode 自动关闭模式
+};
+
+typedef struct PacketData{
+	PacketData(const char* pData, size_t nLen,UINT Mode) {
+		strData.resize(nLen);
+		memcpy((char*)strData.c_str(), pData, nLen);
+		nMode = Mode;
+	}
+	PacketData(const PacketData& pack) {
+		strData = pack.strData;
+		nMode = pack.nMode;
+	}
+	PacketData& operator=(const PacketData& data) {
+		if (this != &data) {
+			strData = data.strData;
+			nMode = data.nMode;
+		}
+		return *this;
+	}
+	std::string strData;
+	UINT nMode;
+}PACKET_DATA;
+
 std::string GetErrorInfo(int wsaErrCode);
-
-
-#define WM_SEND_PACK (WM_USER+1);//发送数据包
 
 class CClientSocket
 {
@@ -169,7 +189,8 @@ public:
 		return -1;
 	}
 
-	bool SendPacket(const CPacket& pack, std::list<CPacket>& listPacks, bool isAutoClosed = true);
+	//bool SendPacket(const CPacket& pack, std::list<CPacket>& listPacks, bool isAutoClosed = true);
+	bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed = true);
 
 	bool GetFilePath(std::string& strPath) {
 		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
@@ -201,8 +222,9 @@ public:
 protected:
 	void SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
 private:
+	UINT m_hThreadID;
 	typedef void(CClientSocket::* MSGFUNC)(UINT uMsg, WPARAM wParam, LPARAM lParam);
-	static std::map<UINT, MSGFUNC> m_mapFunc;
+	std::map<UINT, MSGFUNC> m_mapFunc;
 	HANDLE m_hThread;
 	bool m_bAutoClose;
 	std::mutex m_lock;
@@ -215,41 +237,15 @@ private:
 	CPacket m_packet;
 	SOCKET m_sock;
 	CClientSocket& operator=(const CClientSocket& ss) { return *this; }
-	CClientSocket(const CClientSocket& ss) {
-		m_hThread = INVALID_HANDLE_VALUE;
-		m_bAutoClose = ss.m_bAutoClose;
-		m_sock = ss.m_sock;
-		m_nIP = ss.m_nIP;
-		m_nPort = ss.m_nPort;
-		struct { UINT message; MSGFUNC func; }funcs[] =
-		{
-			{WM_USER + 1, &CClientSocket::SendPack},
-			{0,NULL}
-		};
-		for (int i = 0; funcs[i].message != 0; i++) {
-			if (m_mapFunc.insert(std::pair<UINT, MSGFUNC>(funcs[i].message, funcs[i].func)).second == false) {
-				TRACE("插入失败，消息值：%d 函数值：%08X 序号：%d\r\n", funcs[i].message, funcs[i].func, i);
-			}
-		}
-	}
-	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET),m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE)
-	{
-		if (InitSockEnv() == FALSE) {
-			MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置!"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
-			exit(0);
-		}
-		//m_sock = socket(PF_INET, SOCK_STREAM, 0);
-		m_buffer.resize(BUFFER_SIZE);
-		memset(m_buffer.data(), 0, BUFFER_SIZE);
-
-	}
+	CClientSocket(const CClientSocket& ss);
+	CClientSocket();
 	~CClientSocket() {
 		closesocket(m_sock);
 		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
-	static void threadEntry(void* arg);
-	void threadFunc();
+	static unsigned __stdcall threadEntry(void* arg);
+	//void threadFunc();
 	void threadFunc2();
 	BOOL InitSockEnv() {
 		WSAData data;

@@ -41,9 +41,8 @@ public:
 	//8 解锁
 	//9 删除文件
 	//1981 测试连接
-	//返回值：是命令号，如果小于0，则出错
-    // 实现
-	int SendCommandPacket(int nCmd, bool bAutoClosed = true, BYTE* pData = NULL, int nLength = 0, std::list<CPacket>* plistPacks = NULL);
+	//返回值：是状态，true表示成功，false表示失败
+	bool SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClosed = true, BYTE* pData = NULL, int nLength = 0);
 	int GetImage(CImage& img) {
 		CClientSocket* pSock = CClientSocket::getInstance();
 		return CEdoyunTools::Bytes2Image(img, pSock->GetPacket().strData);
