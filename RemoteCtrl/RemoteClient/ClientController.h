@@ -42,7 +42,7 @@ public:
 	//1981 测试连接
 	//返回值：是命令号，如果小于0，则出错
     // 实现
-	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, int nLength = 0, std::list<CPacket>* plistPacks = NULL);
+	int SendCommandPacket(int nCmd, bool bAutoClosed = true, BYTE* pData = NULL, int nLength = 0, std::list<CPacket>* plistPacks = NULL);
 	int GetImage(CImage& img) {
 		CClientSocket* pSock = CClientSocket::getInstance();
 		return CEdoyunTools::Bytes2Image(img, pSock->GetPacket().strData);

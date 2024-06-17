@@ -48,9 +48,9 @@ LRESULT CClientController::SendMessage(MSG msg)
 	return info.result;
 }
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, int nLength, std::list<CPacket>* plistPacks)
+int CClientController::SendCommandPacket(int nCmd, bool bAutoClosed, BYTE* pData, int nLength, std::list<CPacket>* plistPacks)
 {
-	//TRACE("cmd：%d %s start %lld\r\n", nCmd,__FUNCTION__,GetTickCount64());
+	TRACE("cmd：%d %s start %lld\r\n", nCmd,__FUNCTION__,GetTickCount64());
 	CClientSocket* pSocket = CClientSocket::getInstance();
 	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (hEvent == NULL) {
@@ -59,18 +59,16 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData,
 	}
 	//TODO:不应该直接发送，而是投入队列
 	std::list<CPacket> listPacks;//应答结果包
-	bool bRet = pSocket->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plistPacks);
-	if (bRet == false) {
-		TRACE("发送命令包失败！\r\n");
-		CloseHandle(hEvent);
-		return -3;
+	if (plistPacks == NULL) {
+		plistPacks = &listPacks;
 	}
+	pSocket->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plistPacks,bAutoClosed);
 	CloseHandle(hEvent);//回收事件句柄，防止资源耗尽
 	if (plistPacks->size() > 0) {
 		TRACE("收到应答包：%d\r\n", plistPacks->front().sCmd);
 		return plistPacks->front().sCmd;
 	}
-	//TRACE("cmd：%d %s start %lld\r\n", nCmd, __FUNCTION__, GetTickCount64());
+	TRACE("cmd：%d %s start %lld\r\n", nCmd, __FUNCTION__, GetTickCount64());
 	return -1;
 }
 

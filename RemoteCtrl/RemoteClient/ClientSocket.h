@@ -88,10 +88,10 @@ public:
 		return *this;;
 	}
 	int Size() {//包数据大小
-		return nLength + 2 + 4;
+		return nLength + 6;
 	}
 	const char* Data(std::string& strOut)const{
-		strOut.resize(nLength + 2 + 4);
+		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)pData = sHead; pData += 2;
 		*(DWORD*)(pData) = nLength; pData += 4;
@@ -223,7 +223,7 @@ public:
 private:
 	bool m_bAutoClose;
 	std::list<CPacket>m_listSend;
-	std::map<HANDLE, std::list<CPacket>> m_mapAck;
+	std::map<HANDLE, std::list<CPacket>&> m_mapAck;
 	std::map<HANDLE, bool>m_mapAutoClosed;
 	int m_nIP;
 	int m_nPort;
