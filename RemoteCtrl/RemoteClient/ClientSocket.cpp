@@ -23,16 +23,43 @@ std::string GetErrorInfo(int wsaErrCode)
 	return ret;
 }
 
+bool CClientSocket::InitSocket()
+{
+	if (m_sock != INVALID_SOCKET)CloseSocket();
+	m_sock = socket(PF_INET, SOCK_STREAM, 0);
+	if (m_sock == -1)return false;
+	sockaddr_in serv_addr;
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(m_nIP);//htonl将主机字节序转换为网络字节序
+	serv_addr.sin_port = htons(m_nPort);
+	if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
+		AfxMessageBox("指定的IP地址错误！！！");
+		TRACE("指定的IP地址错误:%d\r\n", m_nIP);
+		return false;
+	}
+	int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
+	if (ret == -1) {
+		AfxMessageBox("连接服务器失败！！！");
+		TRACE("连接服务器失败:%d %s\r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
+		return false;
+	}
+	return true;
+}
+
 bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& listPacks, bool isAutoClosed)
 {
-	if (m_sock == INVALID_SOCKET) {
+	if (m_sock == INVALID_SOCKET && m_hThread == INVALID_HANDLE_VALUE) {
 		//if (!InitSocket())return false;
-		_beginthread(&CClientSocket::threadEntry, 0, this);
+		m_hThread = (HANDLE)_beginthread(&CClientSocket::threadEntry, 0, this);
+		TRACE("创建线程:%d\r\n", m_hThread);
 	}
+	m_lock.lock();
 	auto pr = m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>&>(pack.hEvent, listPacks));
 	m_mapAutoClosed.insert(std::pair<HANDLE, bool>(pack.hEvent, isAutoClosed));
 	TRACE("cmd:%d event %08X thread id %d\r\n", pack.sCmd, pack.hEvent, GetCurrentThreadId());
 	m_listSend.push_back(pack);
+	m_lock.unlock();
 	WaitForSingleObject(pack.hEvent, INFINITE);
 	std::map<HANDLE, std::list<CPacket>&>::iterator it;
 	it = m_mapAck.find(pack.hEvent);
@@ -58,7 +85,9 @@ void CClientSocket::threadFunc()
 	InitSocket();
 	while (m_sock != INVALID_SOCKET) {
 		if (m_listSend.size() > 0) {
+			m_lock.lock();
 			CPacket& head = m_listSend.front();
+			m_lock.unlock();
 			if (Send(head) == false) {
 				TRACE("发送失败");
 				continue;
@@ -80,6 +109,7 @@ void CClientSocket::threadFunc()
 							index -= size;
 							if (it0->second == true) {
 								SetEvent(head.hEvent);
+								break;
 							}
 						}
 					}
@@ -91,11 +121,14 @@ void CClientSocket::threadFunc()
 					}
 				} while (it0->second == false);
 			}
+			m_lock.lock();
 			m_listSend.pop_front();
+			m_lock.unlock();
 			if (InitSocket() == false) {
 				InitSocket();
 			}
 		}
+		Sleep(1);
 	}
 	CloseSocket();
 }

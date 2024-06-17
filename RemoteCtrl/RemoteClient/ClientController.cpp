@@ -57,7 +57,6 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClosed, BYTE* pData
 		TRACE("创建事件句柄失败！\r\n");
 		return -2;
 	}
-	//TODO:不应该直接发送，而是投入队列
 	std::list<CPacket> listPacks;//应答结果包
 	if (plistPacks == NULL) {
 		plistPacks = &listPacks;
@@ -118,6 +117,7 @@ void CClientController::threadWatchScreen()
 				}
 			}
 			else {
+				TRACE("获取图片失败 ret = %d！\r\n", ret);
 				Sleep(1);
 			}
 		}
@@ -143,6 +143,8 @@ void CClientController::threadDownloadFile()
 	}
 	CClientSocket* pSock = CClientSocket::getInstance();
 	do {
+		//std::list<CPacket> listPacks;
+		//int ret = SendCommandPacket(6, true, NULL, 0, &listPacks);
 		int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
 		if (ret < 0) {
 			AfxMessageBox("执行下载命令失败！！！");

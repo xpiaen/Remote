@@ -5,6 +5,7 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <mutex>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -23,7 +24,7 @@ public:
 			strData.clear();
 		}
 		sSum = 0;
-		for (size_t i = 0; i < nSize; i++) {
+		for (size_t i = 0; i < strData.size(); i++) {
 			sSum += BYTE(strData[i]) & 0xFF;
 		}
 		this->hEvent = hEvent;
@@ -60,7 +61,7 @@ public:
 		if (nLength > 4) {
 			strData.resize(nLength - 2 - 2);
 			memcpy((void*)strData.c_str(), pData + i, nLength - 2 - 2);
-			//TRACE("strData = %s\r\n", strData.c_str() + 12);
+			TRACE("strData = %s\r\n", strData.c_str() + 12);
 			i += nLength - 2 - 2;
 		}
 		sSum = *(WORD*)(pData + i);
@@ -146,28 +147,7 @@ public:
 		}
 		return m_instance;
 	}
-	bool InitSocket() {
-		if (m_sock!= INVALID_SOCKET)CloseSocket();
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
-		if (m_sock == -1)return false;
-		sockaddr_in serv_addr;
-		memset(&serv_addr, 0, sizeof(serv_addr));
-		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = htonl(m_nIP);//htonl将主机字节序转换为网络字节序
-		serv_addr.sin_port = htons(m_nPort);
-		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
-			AfxMessageBox("指定的IP地址错误！！！");
-			TRACE("指定的IP地址错误:%d\r\n", m_nIP);
-			return false;
-		}
-		int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
-		if (ret == -1) {
-			AfxMessageBox("连接服务器失败！！！");
-			TRACE("连接服务器失败:%d %s\r\n",WSAGetLastError(),GetErrorInfo(WSAGetLastError()).c_str());
-			return false;
-		}
-		return true;
-	}
+	bool InitSocket();
 
 #define BUFFER_SIZE 3000000
 	int  DealCommand() {
@@ -221,7 +201,9 @@ public:
 		}
 	}
 private:
+	HANDLE m_hThread;
 	bool m_bAutoClose;
+	std::mutex m_lock;
 	std::list<CPacket>m_listSend;
 	std::map<HANDLE, std::list<CPacket>&> m_mapAck;
 	std::map<HANDLE, bool>m_mapAutoClosed;
@@ -236,8 +218,9 @@ private:
 		m_sock = ss.m_sock;
 		m_nIP = ss.m_nIP;
 		m_nPort = ss.m_nPort;
+		m_hThread = ss.m_hThread;
 	}
-	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET),m_bAutoClose(true){
+	CClientSocket():m_nIP(INADDR_ANY),m_nPort(0),m_sock(INVALID_SOCKET),m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE) {
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置!"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
 			exit(0);
