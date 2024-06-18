@@ -86,6 +86,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServ)
 	ON_EN_CHANGE(IDC_EDIT_PROT, &CRemoteClientDlg::OnEnChangeEditProt)
+	ON_MESSAGE(WM_SEND_PACK_ACK, &CRemoteClientDlg::OnSendPacketAck)
 END_MESSAGE_MAP()
 
 
@@ -192,25 +193,12 @@ void CRemoteClientDlg::OnBnClickedBtnTest()
 void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 {
 	std::list<CPacket> listPackets;
-	int ret = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1,true,NULL,0);
-	if (ret == -1 || (listPackets.size()<=0)) {
+	int ret = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1,true, NULL, 0);
+	if (ret == 0) {
 		AfxMessageBox(_T("命令处理失败！！！"));
 		return;
 	}
-	CPacket& head = listPackets.front();
-	std::string drivers =head.strData;
-	std::string dr;
-	m_tree.DeleteAllItems();
-	size_t start = 0;
-	for (size_t i = 0; i <= drivers.size(); i++) {
-		if (i == drivers.size() || drivers[i] == ',') {
-			std::string driverName = drivers.substr(start, i - start);
-			driverName += ':';
-			HTREEITEM hTemp = m_tree.InsertItem(driverName.c_str(), TVI_ROOT, TVI_LAST);
-			m_tree.InsertItem("", hTemp, TVI_LAST);
-			start = i + 1;
-		}
-	}
+	
 }
 
 CString CRemoteClientDlg::GetPath(HTREEITEM hTree)
@@ -272,13 +260,13 @@ void CRemoteClientDlg::LoadFileInfo()
 	m_List.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);//取得点击结点的路径
 	//TRACE("path:%s\r\n", strPath);
-	std::list<CPacket>listPackets;
-	int mCmd = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCSTR)strPath,strPath.GetLength());
+	std::list<CPacket> listPackets;
+	int mCmd = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCSTR)strPath,strPath.GetLength(),(WPARAM)hTreeSelected);
 	if (listPackets.size() > 0) {
 		std::list<CPacket>::iterator it = listPackets.begin();
 		for (; it != listPackets.end(); it++) {
 			PFILEINFO pFileInfo = (PFILEINFO)(*it).strData.c_str();
-			if(pFileInfo->HasNext == FALSE)continue;
+			if (pFileInfo->HasNext == FALSE)continue;
 			if (pFileInfo->IsDirectory) {
 				if (CString(pFileInfo->szFileName) == "." || CString(pFileInfo->szFileName) == "..")
 				{
@@ -405,4 +393,93 @@ void CRemoteClientDlg::OnEnChangeEditProt()
 	UpdateData();//获取控件值
 	CClientController* pCtrl = CClientController::getInstance();
 	pCtrl->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
+}
+
+LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
+{
+	if (lParam == -1 || (lParam == -2)) {
+		//TODO:错误处理
+	}
+	else if (lParam == 1) {
+		//对方关闭了套接字
+	}
+	else {
+		CPacket* pPacket = (CPacket*)wParam;
+		if (pPacket != NULL) {
+			CPacket& head = *pPacket;
+			switch (pPacket->sCmd) {
+			case 1://获取驱动信息
+			{
+				std::string drivers = head.strData;
+				std::string dr;
+				m_tree.DeleteAllItems();
+				size_t start = 0;
+				for (size_t i = 0; i <= drivers.size(); i++) {
+					if (i == drivers.size() || drivers[i] == ',') {
+						std::string driverName = drivers.substr(start, i - start);
+						driverName += ':';
+						HTREEITEM hTemp = m_tree.InsertItem(driverName.c_str(), TVI_ROOT, TVI_LAST);
+						m_tree.InsertItem("", hTemp, TVI_LAST);
+						start = i + 1;
+					}
+				}
+				break;
+			}
+			case 2://获取文件信息
+			{
+				PFILEINFO pFileInfo = (PFILEINFO)head.strData.c_str();
+				if (pFileInfo->HasNext == FALSE)break;
+				if (pFileInfo->IsDirectory) {
+					if (CString(pFileInfo->szFileName) == "." || CString(pFileInfo->szFileName) == "..")
+					{
+						break;
+					}
+					HTREEITEM hTemp = m_tree.InsertItem(pFileInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
+					m_tree.InsertItem("", hTemp, TVI_LAST);
+				}
+				else {
+					m_List.InsertItem(0, pFileInfo->szFileName);//插入文件名
+				}
+				break;
+			}
+			case 3:
+				TRACE("打开文件成功\r\n");
+				break;
+			case 4:
+			{
+				static LONGLONG length = 0,index = 0;
+				if (length == 0) {
+					length = *(LONGLONG*)head.strData.c_str();
+					if (length == 0) {
+						AfxMessageBox("文件长度为零或者无法读取文件！！！");
+						CClientController::getInstance()->DownloadEnd();
+						break;
+					}
+				}
+				else if (length > 0 && index >= length) {
+					fclose((FILE*)lParam);
+					length = 0;
+					index = 0;
+					CClientController::getInstance()->DownloadEnd();
+				}
+				else {
+					FILE* pFile = (FILE*)lParam;
+					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
+					index += head.strData.size();
+				}
+				break;
+			}
+			case 9:
+				TRACE("删除文件成功\r\n");
+				break;
+			case 1981:
+				TRACE("测试连接成功\r\n");
+				break;
+			default:
+				TRACE("未知命令：%d\r\n", pPacket->sCmd);
+				break;
+			}
+		}
+	}
+	return LRESULT();
 }

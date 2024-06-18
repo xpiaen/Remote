@@ -43,6 +43,7 @@ BEGIN_MESSAGE_MAP(CWatchDialog, CDialogEx)
 	ON_STN_CLICKED(IDC_WATCH, &CWatchDialog::OnStnClickedWatch)
 	ON_BN_CLICKED(IDC_BTN_LOCK, &CWatchDialog::OnBnClickedBtnLock)
 	ON_BN_CLICKED(IDC_BTN_UNLOCK, &CWatchDialog::OnBnClickedBtnUnlock)
+	ON_MESSAGE(WM_SEND_PACK_ACK,&CWatchDialog::OnSendPacketAck)
 END_MESSAGE_MAP()
 
 
@@ -63,8 +64,8 @@ BOOL CWatchDialog::OnInitDialog()
 	CDialogEx::OnInitDialog();
 
 	// TODO:  在此添加额外的初始化
-	//m_isFull = false;
-	SetTimer(0, 45, NULL);
+	m_isFull = false;
+	//SetTimer(0, 45, NULL);
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -73,23 +74,63 @@ BOOL CWatchDialog::OnInitDialog()
 void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	if (nIDEvent == 0) {
-		CClientController* pCtrl = CClientController::getInstance();
-		if (m_isFull) {
-			CRect rect;
-			m_picture.GetWindowRect(rect);//获取图片的大小
-			m_nObjWidth = m_image.GetWidth();
-			m_nObjHeight = m_image.GetHeight();
-			m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
-			m_picture.InvalidateRect(NULL);
-			m_image.Destroy();
-			m_isFull = false;
-			TRACE("更新图片完成%d %d\r\n", m_nObjWidth, m_nObjHeight);
-		}
-	}
+	//if (nIDEvent == 0) {
+	//	CClientController* pCtrl = CClientController::getInstance();
+	//	if (m_isFull) {
+	//		CRect rect;
+	//		m_picture.GetWindowRect(rect);//获取图片的大小
+	//		m_nObjWidth = m_image.GetWidth();
+	//		m_nObjHeight = m_image.GetHeight();
+	//		m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+	//		m_picture.InvalidateRect(NULL);
+	//		m_image.Destroy();
+	//		m_isFull = false;
+	//		TRACE("更新图片完成%d %d\r\n", m_nObjWidth, m_nObjHeight);
+	//	}
+	//}
 	CDialogEx::OnTimer(nIDEvent);
 }
 
+
+LRESULT CWatchDialog::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
+{
+	if (lParam == -1 || (lParam == -2)) {
+		//TODO:错误处理
+	}
+	else if (lParam == 1) {
+		//对方关闭了套接字
+	}
+	else{
+		CPacket* pPacket = (CPacket*) wParam;
+		if (pPacket != NULL) {
+			switch (pPacket->sCmd) {
+			case 6:
+			{
+				if (m_isFull) {
+					CEdoyunTools::Bytes2Image(m_image, pPacket->strData);
+					CRect rect;
+					m_picture.GetWindowRect(rect);//获取图片的大小
+					m_nObjWidth = m_image.GetWidth();
+					m_nObjHeight = m_image.GetHeight();
+					m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+					m_picture.InvalidateRect(NULL);
+					m_image.Destroy();
+					m_isFull = false;
+					TRACE("更新图片完成%d %d\r\n", m_nObjWidth, m_nObjHeight);
+				}
+				break;
+			}
+			case 5:
+			case 7:
+			case 8:
+			default:
+				break;
+			}
+		}
+	}
+	
+	return LRESULT();
+}
 
 void CWatchDialog::OnLButtonDblClk(UINT nFlags, CPoint point)
 {

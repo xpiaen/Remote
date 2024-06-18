@@ -139,24 +139,28 @@ enum {
 };
 
 typedef struct PacketData{
-	PacketData(const char* pData, size_t nLen,UINT Mode) {
+	PacketData(const char* pData, size_t nLen,UINT Mode,WPARAM nParam = 0) {
 		strData.resize(nLen);
 		memcpy((char*)strData.c_str(), pData, nLen);
 		nMode = Mode;
+		wParam = nParam;
 	}
 	PacketData(const PacketData& pack) {
 		strData = pack.strData;
 		nMode = pack.nMode;
+		wParam = pack.wParam;
 	}
 	PacketData& operator=(const PacketData& data) {
 		if (this != &data) {
 			strData = data.strData;
 			nMode = data.nMode;
+			wParam = data.wParam;
 		}
 		return *this;
 	}
 	std::string strData;
 	UINT nMode;
+	WPARAM wParam;
 }PACKET_DATA;
 
 std::string GetErrorInfo(int wsaErrCode);
@@ -190,7 +194,7 @@ public:
 	}
 
 	//bool SendPacket(const CPacket& pack, std::list<CPacket>& listPacks, bool isAutoClosed = true);
-	bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed = true);
+	bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed = true, WPARAM wParam = 0);
 
 	bool GetFilePath(std::string& strPath) {
 		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {

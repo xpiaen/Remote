@@ -48,11 +48,18 @@ LRESULT CClientController::SendMessage(MSG msg)
 	return info.result;
 }
 
-bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClosed, BYTE* pData, int nLength)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClosed, BYTE* pData, int nLength, WPARAM wParam = 0)
 {
 	TRACE("cmd：%d %s start %lld\r\n", nCmd,__FUNCTION__,GetTickCount64());
 	CClientSocket* pSocket = CClientSocket::getInstance();
-	return pSocket->SendPacket(hWnd,CPacket(nCmd, pData, nLength),bAutoClosed);
+	return pSocket->SendPacket(hWnd,CPacket(nCmd, pData, nLength),bAutoClosed,wParam);
+}
+
+void CClientController::DownloadEnd()
+{
+	m_statusDlg.ShowWindow(SW_HIDE);
+	m_remoteDlg.EndWaitCursor();//隐藏等待光标
+	m_remoteDlg.MessageBox(_T("文件下载完成"), _T("完成"));
 }
 
 int CClientController::DownFile(CString strPath)
@@ -61,10 +68,16 @@ int CClientController::DownFile(CString strPath)
 	if (dlg.DoModal() == IDOK) {
 		m_strRemote = strPath;
 		m_strLocal = dlg.GetPathName();
-		m_ThreadDownLoad = (HANDLE)_beginthread(&CClientController::threadEntryForDownFile, 0, this);
-		if (WaitForSingleObject(m_ThreadDownLoad, 0) != WAIT_TIMEOUT) {
+		FILE* pFile = fopen(m_strLocal, "wb+");
+		if (pFile == NULL) {
+			AfxMessageBox("本地没有权限保存该文件，或者文件无法创建！！！");
 			return -1;
 		}
+		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
+		/*m_ThreadDownLoad = (HANDLE)_beginthread(&CClientController::threadEntryForDownFile, 0, this);
+		if (WaitForSingleObject(m_ThreadDownLoad, 0) != WAIT_TIMEOUT) {
+			return -1;
+		}*/
 		m_remoteDlg.BeginWaitCursor();
 		m_statusDlg.m_info.SetWindowText(_T("命令正在执行中！"));
 		m_statusDlg.ShowWindow(SW_SHOW);
@@ -129,7 +142,7 @@ void CClientController::threadDownloadFile()
 	}
 	CClientSocket* pSock = CClientSocket::getInstance();
 	do {
-		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
 		if (ret < 0) {
 			AfxMessageBox("执行下载命令失败！！！");
 			TRACE("执行下载失败： ret:%d\r\n", ret);
