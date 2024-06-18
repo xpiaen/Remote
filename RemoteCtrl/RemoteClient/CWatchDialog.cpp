@@ -107,21 +107,21 @@ LRESULT CWatchDialog::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 			switch (head.sCmd) {
 			case 6:
 			{
-				if (m_isFull) {
-					CEdoyunTools::Bytes2Image(m_image, head.strData);
-					CRect rect;
-					m_picture.GetWindowRect(rect);//获取图片的大小
-					m_nObjWidth = m_image.GetWidth();
-					m_nObjHeight = m_image.GetHeight();
-					m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
-					m_picture.InvalidateRect(NULL);
-					m_image.Destroy();
-					m_isFull = false;
-					TRACE("更新图片完成%d %d\r\n", m_nObjWidth, m_nObjHeight);
-				}
+				CEdoyunTools::Bytes2Image(m_image, head.strData);
+				CRect rect;
+				m_picture.GetWindowRect(rect);//获取图片的大小
+				m_nObjWidth = m_image.GetWidth();
+				m_nObjHeight = m_image.GetHeight();
+				m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+				m_picture.InvalidateRect(NULL);
+				m_image.Destroy();
+				m_isFull = false;
+				TRACE("更新图片完成%d %d\r\n", m_nObjWidth, m_nObjHeight);
 				break;
 			}
 			case 5:
+				TRACE("远程端应答鼠标事件\r\n");
+				break;
 			case 7:
 			case 8:
 			default:

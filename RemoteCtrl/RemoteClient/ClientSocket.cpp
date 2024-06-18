@@ -53,11 +53,15 @@ bool CClientSocket::InitSocket()
 }
 bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed, WPARAM wParam)
 {
-	TRACE("hWnd:%d\r\n", hWnd);
+	//TRACE("hWnd:%d\r\n", hWnd);
 	UINT nMode = isAutoClosed ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	bool ret = PostThreadMessage(m_hThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+	PACKET_DATA* pData = new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam);
+	bool ret = PostThreadMessage(m_hThreadID, WM_SEND_PACK, (WPARAM)pData, (LPARAM)hWnd);
+	if (ret == false) {
+		delete pData;
+	}
 	return ret;
 }
 
@@ -230,10 +234,10 @@ bool CClientSocket::Send(const CPacket& pack)
 
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {//定义一个消息的数据结构(数据和数据长度，模式) 回调消息的数据结构(HWND MESSAGE)
+	PACKET_DATA data = *(PACKET_DATA*)wParam;
+	delete (PACKET_DATA*)wParam;
 	HWND hWnd = (HWND)lParam;
 	if (InitSocket() == true) {
-		PACKET_DATA data = *(PACKET_DATA*)wParam;
-		delete (PACKET_DATA*)wParam;
 		int ret = send(m_sock, (char*)data.strData.c_str(), (int)data.strData.size(), 0);
 		if (ret > 0) {
 			size_t index = 0;

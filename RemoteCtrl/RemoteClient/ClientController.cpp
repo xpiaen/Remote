@@ -91,7 +91,6 @@ int CClientController::DownFile(CString strPath)
 void CClientController::StartWatchScreen()
 {
 	m_isClosed = false;
-	//m_watchDlg.SetParent(&m_remoteDlg);
 	m_ThreadWatch = (HANDLE)_beginthread(&CClientController::threadEntryForWatchScreen, 0, this);
 	m_watchDlg.DoModal();
 	m_isClosed = true;
@@ -101,27 +100,24 @@ void CClientController::StartWatchScreen()
 void CClientController::threadWatchScreen()
 {
 	Sleep(50);
+	ULONGLONG nTick = GetTickCount64();
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {//更新数据到缓存
-			std::string strData;
+			if (GetTickCount64() - nTick < 150) {
+				Sleep(150 - DWORD(GetTickCount64() - nTick));
+			}
+			nTick = GetTickCount64();
 			int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6,true,NULL,0);
 			//TODO:添加消息响应函数WM_SEND_PACK_ACK
 			//TODO:控制发送频率
-			if (ret == 6) {
-				if (CEdoyunTools::Bytes2Image(m_watchDlg.getImage(),strData) == 0) {
-					TRACE("获取图片成功！\r\n");
-					m_watchDlg.SetImageStatus(true);
-				}
-				else {
-					TRACE("获取图片失败 ret = %d！\r\n",ret);
-				}
+			if (ret == 1) {
+				TRACE("成功发送请求图片命令！\r\n");
 			}
 			else {
 				TRACE("获取图片失败 ret = %d！\r\n", ret);
-				Sleep(1);
 			}
 		}
-		else Sleep(1);
+		Sleep(1);
 	}
 }
 

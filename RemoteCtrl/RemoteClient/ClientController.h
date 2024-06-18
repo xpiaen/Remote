@@ -98,7 +98,7 @@ private:
 	}MSGINFO;
 	typedef LRESULT(CClientController::* MSGFUNC)(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	static std::map<UINT, MSGFUNC> m_mapFunc;
-	CWatchDialog m_watchDlg;
+	CWatchDialog m_watchDlg;//消息包在对话框关闭后，可能会导致内存泄漏
 	CStatusDlg m_statusDlg;
 	CRemoteClientDlg m_remoteDlg;
 	HANDLE m_hThread;//线程句柄
