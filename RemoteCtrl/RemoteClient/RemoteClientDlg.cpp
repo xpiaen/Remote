@@ -259,27 +259,8 @@ void CRemoteClientDlg::LoadFileInfo()
 	DeleteTreeChildrenItem(hTreeSelected);
 	m_List.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);//取得点击结点的路径
-	//TRACE("path:%s\r\n", strPath);
-	std::list<CPacket> listPackets;
-	int mCmd = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCSTR)strPath,strPath.GetLength(),(WPARAM)hTreeSelected);
-	if (listPackets.size() > 0) {
-		std::list<CPacket>::iterator it = listPackets.begin();
-		for (; it != listPackets.end(); it++) {
-			PFILEINFO pFileInfo = (PFILEINFO)(*it).strData.c_str();
-			if (pFileInfo->HasNext == FALSE)continue;
-			if (pFileInfo->IsDirectory) {
-				if (CString(pFileInfo->szFileName) == "." || CString(pFileInfo->szFileName) == "..")
-				{
-					continue;
-				}
-				HTREEITEM hTemp = m_tree.InsertItem(pFileInfo->szFileName, hTreeSelected, TVI_LAST);
-				m_tree.InsertItem("", hTemp, TVI_LAST);
-			}
-			else {
-				m_List.InsertItem(0, pFileInfo->szFileName);//插入文件名
-			}
-		}
-	}
+	TRACE("hTreeSeleceted:%08X\r\n", hTreeSelected);
+	CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCSTR)strPath,strPath.GetLength(),(WPARAM)hTreeSelected);
 }
 
 
@@ -423,25 +404,28 @@ LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 						start = i + 1;
 					}
 				}
-				break;
 			}
+			break;
 			case 2://获取文件信息
 			{
 				PFILEINFO pFileInfo = (PFILEINFO)head.strData.c_str();
+				TRACE("FileName:[%s] isdir:%d hasnext:%d\r\n", pFileInfo->szFileName, pFileInfo->IsDirectory, pFileInfo->HasNext);
 				if (pFileInfo->HasNext == FALSE)break;
 				if (pFileInfo->IsDirectory) {
 					if (CString(pFileInfo->szFileName) == "." || CString(pFileInfo->szFileName) == "..")
 					{
 						break;
 					}
+					TRACE("hselected %08X  %08X\r\n", lParam,m_tree.GetSelectedItem());
 					HTREEITEM hTemp = m_tree.InsertItem(pFileInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
 					m_tree.InsertItem("", hTemp, TVI_LAST);
+					m_tree.Expand((HTREEITEM)lParam, TVE_EXPAND);
 				}
 				else {
 					m_List.InsertItem(0, pFileInfo->szFileName);//插入文件名
 				}
-				break;
 			}
+			break;
 			case 3:
 				TRACE("打开文件成功\r\n");
 				break;
@@ -449,11 +433,10 @@ LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 			{
 				static LONGLONG length = 0,index = 0;
 				if (length == 0) {
-					length = *(LONGLONG*)head.strData.c_str();
-					if (length == 0) {
+					length = *(long long*)head.strData.c_str();
+					if (head.strData.c_str() == 0) {
 						AfxMessageBox("文件长度为零或者无法读取文件！！！");
 						CClientController::getInstance()->DownloadEnd();
-						break;
 					}
 				}
 				else if (length > 0 && index >= length) {
@@ -466,9 +449,15 @@ LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 					FILE* pFile = (FILE*)lParam;
 					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
 					index += head.strData.size();
+					if (index >= length) {
+						fclose((FILE*)lParam);
+						length = 0;
+						index = 0;
+						CClientController::getInstance()->DownloadEnd();
+					}
 				}
-				break;
 			}
+			break;
 			case 9:
 				TRACE("删除文件成功\r\n");
 				break;

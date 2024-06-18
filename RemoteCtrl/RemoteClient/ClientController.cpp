@@ -61,6 +61,7 @@ void CClientController::DownloadEnd()
 	m_statusDlg.ShowWindow(SW_HIDE);
 	m_remoteDlg.EndWaitCursor();//隐藏等待光标
 	m_remoteDlg.MessageBox(_T("文件下载完成"), _T("完成"));
+	//m_remoteDlg.LoadFileInfo();
 }
 
 int CClientController::DownFile(CString strPath)
@@ -75,10 +76,6 @@ int CClientController::DownFile(CString strPath)
 			return -1;
 		}
 		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
-		/*m_ThreadDownLoad = (HANDLE)_beginthread(&CClientController::threadEntryForDownFile, 0, this);
-		if (WaitForSingleObject(m_ThreadDownLoad, 0) != WAIT_TIMEOUT) {
-			return -1;
-		}*/
 		m_remoteDlg.BeginWaitCursor();
 		m_statusDlg.m_info.SetWindowText(_T("命令正在执行中！"));
 		m_statusDlg.ShowWindow(SW_SHOW);
@@ -167,6 +164,7 @@ void CClientController::threadDownloadFile()
 	m_statusDlg.ShowWindow(SW_HIDE);
 	m_remoteDlg.EndWaitCursor();//隐藏等待光标
 	m_remoteDlg.MessageBox(_T("文件下载完成"), _T("完成"));
+	m_remoteDlg.LoadFileInfo();
 }
 
 void CClientController::threadEntryForDownFile(void* arg)
