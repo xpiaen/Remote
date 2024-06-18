@@ -21,7 +21,6 @@ public:
 	static CClientController* getInstance();//获取全局唯一实例，单例模式
 	int InitController();//初始化
 	int Invoke(CWnd*& pMainWnd);//启动
-	LRESULT SendMessage(MSG msg);//发送消息
 	void UpdateAddress(int nIP, int nPort) {//更新地址
 		CClientSocket::getInstance()->UpdateAddress(nIP, nPort);
 	}
@@ -54,11 +53,8 @@ public:
 protected:
 	void threadWatchScreen();
 	static void threadEntryForWatchScreen(void* arg);
-	void threadDownloadFile();
-	static void threadEntryForDownFile(void* arg);
 	CClientController():m_statusDlg(&m_remoteDlg), m_watchDlg(&m_remoteDlg){
 		m_hThread = INVALID_HANDLE_VALUE;
-		m_ThreadDownLoad = INVALID_HANDLE_VALUE;
 		m_ThreadWatch = INVALID_HANDLE_VALUE;
 		m_isClosed = true;
 		m_nThreadID = -1;
@@ -102,7 +98,6 @@ private:
 	CStatusDlg m_statusDlg;
 	CRemoteClientDlg m_remoteDlg;
 	HANDLE m_hThread;//线程句柄
-	HANDLE m_ThreadDownLoad;
 	HANDLE m_ThreadWatch;
 	bool m_isClosed;//监视界面是否关闭
 	CString m_strRemote;//下载文件的远程路径

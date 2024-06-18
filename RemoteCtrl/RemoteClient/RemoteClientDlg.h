@@ -29,14 +29,17 @@ public:
 private:
 	bool m_isClosed;//监视界面是否关闭
 private:
+	void DealCommand(WORD nCmd, const std::string& strData,LPARAM lParam);
+	void InitUIData();
 	void LoadFileCurrent();
+	void Str2Tree(const std::string& driver, CTreeCtrl& tree);
+	void UpdateFileInfo(const FILEINFO& finfo, HTREEITEM hParent);
+	void UpdateDownloadFile(const std::string& strData, FILE* pFile);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 	CString CRemoteClientDlg::GetPath(HTREEITEM hTree);
-	
 protected:
 	HICON m_hIcon;
 	CStatusDlg m_statusDlg;
-
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);

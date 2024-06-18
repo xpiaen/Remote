@@ -35,19 +35,6 @@ int CClientController::Invoke(CWnd*& pMainWnd)
 	return m_remoteDlg.DoModal();
 }
 
-LRESULT CClientController::SendMessage(MSG msg)
-{
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (hEvent == NULL) {
-		return -2;
-	}
-	MSGINFO info(msg);
-	PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE,(WPARAM)&info,(LPARAM)&hEvent);
-	WaitForSingleObject(hEvent, INFINITE);
-	CloseHandle(hEvent);
-	return info.result;
-}
-
 bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClosed, BYTE* pData, int nLength, WPARAM wParam)
 {
 	TRACE("hWnd: %d cmd：%d %s start %lld\r\n",hWnd, nCmd,__FUNCTION__,GetTickCount64());
@@ -105,8 +92,6 @@ void CClientController::threadWatchScreen()
 			}
 			nTick = GetTickCount64();
 			int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6,true,NULL,0);
-			//TODO:添加消息响应函数WM_SEND_PACK_ACK
-			//TODO:控制发送频率
 			if (ret == 1) {
 				TRACE("成功发送请求图片命令！\r\n");
 			}
@@ -125,54 +110,6 @@ void CClientController::threadEntryForWatchScreen(void* arg)
 	_endthread();
 }
 
-void CClientController::threadDownloadFile()
-{
-	FILE* pFile = fopen(m_strLocal, "wb+");
-	if (pFile == NULL) {
-		AfxMessageBox("本地没有权限保存该文件，或者文件无法创建！！！");
-		m_statusDlg.ShowWindow(SW_HIDE);
-		m_remoteDlg.EndWaitCursor();//隐藏等待光标
-		return;
-	}
-	CClientSocket* pSock = CClientSocket::getInstance();
-	do {
-		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
-		if (ret < 0) {
-			AfxMessageBox("执行下载命令失败！！！");
-			TRACE("执行下载失败： ret:%d\r\n", ret);
-			break;
-		}
-		long long nlength = *(long long*)pSock->GetPacket().strData.c_str();
-		if (nlength == 0) {
-			AfxMessageBox("文件长度为零或者无法读取文件！！！");
-			break;
-		}
-		long long nCount = 0;
-		while (nCount < nlength) {
-			int ret = pSock->DealCommand();
-			if (ret < 0) {
-				AfxMessageBox("传输失败！！！");
-				TRACE("传输失败： ret:%d\r\n", ret);
-				break;
-			}
-			fwrite(pSock->GetPacket().strData.c_str(), 1, pSock->GetPacket().strData.size(), pFile);
-			nCount += pSock->GetPacket().strData.size();
-		}
-	} while (false);
-	fclose(pFile);
-	pSock->CloseSocket();
-	m_statusDlg.ShowWindow(SW_HIDE);
-	m_remoteDlg.EndWaitCursor();//隐藏等待光标
-	m_remoteDlg.MessageBox(_T("文件下载完成"), _T("完成"));
-	m_remoteDlg.LoadFileInfo();
-}
-
-void CClientController::threadEntryForDownFile(void* arg)
-{
-	CClientController* pThis = CClientController::getInstance();
-	pThis->threadDownloadFile();
-	_endthread();
-}
 
 void CClientController::threadFunc()
 {
