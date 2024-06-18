@@ -48,11 +48,12 @@ LRESULT CClientController::SendMessage(MSG msg)
 	return info.result;
 }
 
-bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClosed, BYTE* pData, int nLength, WPARAM wParam = 0)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClosed, BYTE* pData, int nLength, WPARAM wParam)
 {
-	TRACE("cmd£º%d %s start %lld\r\n", nCmd,__FUNCTION__,GetTickCount64());
+	TRACE("hWnd: %d cmd£º%d %s start %lld\r\n",hWnd, nCmd,__FUNCTION__,GetTickCount64());
 	CClientSocket* pSocket = CClientSocket::getInstance();
-	return pSocket->SendPacket(hWnd,CPacket(nCmd, pData, nLength),bAutoClosed,wParam);
+	bool ret = pSocket->SendPacket(hWnd,CPacket(nCmd, pData, nLength),bAutoClosed,wParam);
+	return ret;
 }
 
 void CClientController::DownloadEnd()

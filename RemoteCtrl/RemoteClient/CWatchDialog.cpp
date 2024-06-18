@@ -100,14 +100,15 @@ LRESULT CWatchDialog::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 	else if (lParam == 1) {
 		//对方关闭了套接字
 	}
-	else{
-		CPacket* pPacket = (CPacket*) wParam;
-		if (pPacket != NULL) {
-			switch (pPacket->sCmd) {
+	else {
+		if (wParam != NULL) {
+			CPacket head = *(CPacket*)wParam;
+			delete (CPacket*)wParam;
+			switch (head.sCmd) {
 			case 6:
 			{
 				if (m_isFull) {
-					CEdoyunTools::Bytes2Image(m_image, pPacket->strData);
+					CEdoyunTools::Bytes2Image(m_image, head.strData);
 					CRect rect;
 					m_picture.GetWindowRect(rect);//获取图片的大小
 					m_nObjWidth = m_image.GetWidth();
@@ -128,7 +129,6 @@ LRESULT CWatchDialog::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 			}
 		}
 	}
-	
 	return LRESULT();
 }
 

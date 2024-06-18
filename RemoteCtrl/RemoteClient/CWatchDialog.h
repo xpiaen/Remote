@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "afxdialogex.h"
+
 #ifndef WM_SEND_PACK_ACK
 #define WM_SEND_PACK_ACK (WM_USER + 2)
 #endif

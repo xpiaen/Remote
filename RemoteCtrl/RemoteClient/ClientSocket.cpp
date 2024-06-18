@@ -53,14 +53,14 @@ bool CClientSocket::InitSocket()
 }
 bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed, WPARAM wParam)
 {
-	if (m_hThread == INVALID_HANDLE_VALUE) {
-		m_hThread = (HANDLE)_beginthreadex(NULL,0,&CClientSocket::threadEntry,this,0,&m_hThreadID);
-	}
+	TRACE("hWnd:%d\r\n", hWnd);
 	UINT nMode = isAutoClosed ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	return PostThreadMessage(m_hThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+	bool ret = PostThreadMessage(m_hThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+	return ret;
 }
+
 //bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& listPacks, bool isAutoClosed)
 //{
 //	if (m_sock == INVALID_SOCKET && m_hThread == INVALID_HANDLE_VALUE) {
@@ -94,6 +94,7 @@ CClientSocket::CClientSocket(const CClientSocket& ss)
 	m_sock = ss.m_sock;
 	m_nIP = ss.m_nIP;
 	m_nPort = ss.m_nPort;
+	m_hThreadID = ss.m_hThreadID;
 	std::map<UINT, CClientSocket::MSGFUNC>::const_iterator it = ss.m_mapFunc.begin();
 	for (; it != ss.m_mapFunc.end(); it++) {
 		m_mapFunc.insert(std::pair<UINT, MSGFUNC>(it->first, it->second));
@@ -105,6 +106,18 @@ CClientSocket::CClientSocket():m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOC
 	if (InitSockEnv() == FALSE) {
 		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置!"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
 		exit(0);
+	}
+	m_eventInvoke = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (m_eventInvoke == 0) {
+		TRACE("创建网络消息处理事件失败！\r\n");
+	}
+	else {
+		m_hThread = (HANDLE)_beginthreadex(NULL, 0, &CClientSocket::threadEntry, this, 0, &m_hThreadID);
+		TRACE("m_hThread:%d m_hThreadID:%d\r\n", m_hThread, m_hThreadID);
+		if (WaitForSingleObject(m_eventInvoke, 100) == WAIT_TIMEOUT) {
+			TRACE("网络消息处理线程启动失败	！\r\n");
+		}
+		CloseHandle(m_eventInvoke);
 	}
 	m_buffer.resize(BUFFER_SIZE);
 	memset(m_buffer.data(), 0, BUFFER_SIZE);
@@ -195,10 +208,12 @@ unsigned CClientSocket::threadEntry(void* arg)
 
 void CClientSocket::threadFunc2()
 {
+	SetEvent(m_eventInvoke);
 	MSG msg;
 	while (::GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
+		TRACE("消息值：%08X %d %d\r\n", msg.message,msg.wParam,msg.lParam);
 		if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
 			(this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
 		}
@@ -215,7 +230,7 @@ bool CClientSocket::Send(const CPacket& pack)
 
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {//定义一个消息的数据结构(数据和数据长度，模式) 回调消息的数据结构(HWND MESSAGE)
-	HWND hWnd = (HWND)wParam;
+	HWND hWnd = (HWND)lParam;
 	if (InitSocket() == true) {
 		PACKET_DATA data = *(PACKET_DATA*)wParam;
 		delete (PACKET_DATA*)wParam;

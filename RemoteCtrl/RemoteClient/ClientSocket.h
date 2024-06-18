@@ -195,7 +195,6 @@ public:
 
 	//bool SendPacket(const CPacket& pack, std::list<CPacket>& listPacks, bool isAutoClosed = true);
 	bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed = true, WPARAM wParam = 0);
-
 	bool GetFilePath(std::string& strPath) {
 		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
 			strPath = m_packet.strData;
@@ -223,9 +222,8 @@ public:
 			m_nPort = nPort;
 		}
 	}
-protected:
-	void SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
 private:
+	HANDLE m_eventInvoke;//Æô¶¯ÊÂ¼þ
 	UINT m_hThreadID;
 	typedef void(CClientSocket::* MSGFUNC)(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	std::map<UINT, MSGFUNC> m_mapFunc;
@@ -266,6 +264,7 @@ private:
 			delete tmp;
 		}
 	}
+	void SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	bool Send(const char* pData, size_t nSize) {
 		if (m_sock == -1)return false;
 		return send(m_sock, pData, nSize, 0) > 0;
