@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Resource.h"
 #include <map>
 #include "Packet.h"
@@ -9,6 +10,7 @@
 #include <io.h>
 #include <list>
 #include "LockDialog.h"
+
 
 class CCommand
 {
