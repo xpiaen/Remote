@@ -65,6 +65,15 @@ int WriteRegisterTable(const CString& strPath)
     return 0;
 }
 
+/**
+* 改bug的思路
+* 0 观察现象
+* 1 先确定范围
+* 2 分析错误可能性
+* 3 调试或者打日志，定位错误
+* 4 处理错误
+* 5 验证修复/长时间验证/多次验证/多条件验证
+**/
 int WriteStartupDir(const CString& strPath)
 {
     CString strCmd = GetCommandLine();
@@ -103,10 +112,77 @@ void ChooseAutoInvoke() {
     return;
 }
 
+void ShowError() 
+{
+    LPWSTR lpMessageBuf = NULL;
+    //strerror(errno);//标准c语言库
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+        NULL, GetLastError(), 
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPWSTR)&lpMessageBuf,
+        0, NULL);
+    OutputDebugString(lpMessageBuf);
+    LocalFree(lpMessageBuf);
+}
+
+bool IsAdmin() 
+{
+    HANDLE hToken = NULL;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        ShowError();
+        return false;
+    }
+    TOKEN_ELEVATION eve;//声明结构体,用于获取权限信息
+    DWORD len = 0;
+    if (!GetTokenInformation(hToken, TokenElevation, &eve, sizeof(eve), &len)) {//获取权限信息
+        ShowError();
+        return false;
+    }
+    CloseHandle(hToken);
+    if (len == sizeof(eve)) {
+        return eve.TokenIsElevated;
+    }
+    printf("Length of TokenElevation is %d\n", len);
+    return false;
+}
+
+void RunAdmin() 
+{
+    HANDLE hToken = NULL;
+    //LOGON32_LOGON_INTERACTIVE  LOGON32_LOGON_BATCH
+    BOOL ret = LogonUser(_T("Administrator"), NULL, NULL, LOGON32_LOGON_BATCH, LOGON32_PROVIDER_DEFAULT, &hToken);
+    if (!ret) {
+        ShowError();
+        MessageBox(NULL, _T("登录错误！"), _T("程序错误"), 0);
+        ::exit(0);
+    }
+    OutputDebugString(L"已获取管理员权限\n");
+    STARTUPINFO si = { 0 };
+    PROCESS_INFORMATION pi = { 0 };
+    TCHAR sPath[MAX_PATH] = _T("");
+    GetCurrentDirectory(MAX_PATH, sPath);
+    CString strCmd = sPath;
+    strCmd += _T("\\RemoteCtrl.exe");
+
+    //ret = CreateProcessWithTokenW(hToken, LOGON_WITH_PROFILE, NULL, (LPWSTR)(LPCWSTR)strCmd, CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &si, &pi);
+    ret = CreateProcessWithLogonW(_T("Administrator"),NULL, NULL, LOGON_WITH_PROFILE, NULL, (LPWSTR)(LPCWSTR)strCmd, CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &si, &pi);
+    CloseHandle(hToken);
+    if (!ret) {
+        ShowError();
+        MessageBox(NULL, strCmd, _T("创建进程失败！"), 0);
+        ::exit(0);
+    }
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+}
+
 int main()
 {
     int nRetCode = 0;
+
     HMODULE hModule = ::GetModuleHandle(nullptr);
+
     if (hModule != nullptr)
     {
         // 初始化 MFC 并在失败时显示错误对话框。
@@ -118,6 +194,16 @@ int main()
         }
         else
         {
+            if (IsAdmin()) {
+                OutputDebugString(L"当前用户是管理员\n");
+                //MessageBox(NULL, _T("管理员"), _T("用户状态"), 0);
+            }
+            else {
+                OutputDebugString(L"当前用户不是管理员\n");
+                //MessageBox(NULL, _T("普通用户"), _T("用户状态"), 0);
+                RunAdmin();
+                return nRetCode;
+            }
             ChooseAutoInvoke();
             CCommand cmd;
             CServerSocket* pserver = CServerSocket::getInstance();
