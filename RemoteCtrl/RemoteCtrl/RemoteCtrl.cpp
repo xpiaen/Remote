@@ -27,10 +27,61 @@ using namespace std;
 //【复制这些dll到system32下面或者sysWOW64下面】
 //system32多为64位程序，sysWOW64多为32位程序
 //【使用静态库，而非动态库】
+
+int WriteRegisterTable(const CString& strPath)
+{
+    CString strSubKey = _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
+    char sPath[MAX_PATH] = "";
+    char sSys[MAX_PATH] = "";
+    std::string strExe = "\\RemoteCtrl.exe";
+    GetCurrentDirectoryA(MAX_PATH, sPath);
+    GetSystemDirectoryA(sSys, sizeof(sSys));
+    // 确保路径以反斜杠结尾
+    std::string sysPath = sSys;
+    if (sysPath.back() != '\\') {
+        sysPath += '\\';
+    }
+    std::string currentPath = sPath;
+    if (currentPath.back() != '\\') {
+        currentPath += '\\';
+    }
+    // 构建 mklink 命令
+    std::string strCmd = "mklink " + sysPath + "RemoteCtrl.exe " + currentPath + "RemoteCtrl.exe";
+    system(strCmd.c_str());
+    HKEY hKey = NULL;
+    LONG ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, strSubKey, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY, &hKey);
+    if (ret != ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        MessageBox(NULL, _T("设置自动开机启动失败！是否权限不足?\r\n程序启动失败!"), _T("错误"), MB_TOPMOST | MB_ICONERROR);
+        return -1;
+    }
+    ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength() * sizeof(TCHAR));
+    if (ret != ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        MessageBox(NULL, _T("设置自动开机启动失败！是否权限不足?\r\n程序启动失败!"), _T("错误"), MB_TOPMOST | MB_ICONERROR);
+        return -1;
+    }
+    RegCloseKey(hKey);
+    return 0;
+}
+
+int WriteStartupDir(const CString& strPath)
+{
+    CString strCmd = GetCommandLine();
+    strCmd.Replace(_T("\""),_T(""));
+    BOOL ret = CopyFile(strCmd, strPath, FALSE);
+    //fopen CFile system(copy) CopyFile OpenFile
+    if (!ret) {
+        MessageBox(NULL, _T("复制文件到运行目录失败！是否权限不足?\r\n程序启动失败!"), _T("错误"), MB_TOPMOST | MB_ICONERROR);
+        return -1;
+    }
+    return 0;
+}
+
 void ChooseAutoInvoke() {
-    TCHAR wcsSystem[MAX_PATH] = _T("");
-    CString strPath = CString(_T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe"));
-    if (PathFileExists(strPath)) {
+    CString StartUpPath = _T("C:\\Users\\Administrator\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtrl.exe");
+    CString RegisterPath = CString(_T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe"));
+    if (PathFileExists(RegisterPath) || PathFileExists(StartUpPath)) {
         return;
     }
     CString strSubKey = _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
@@ -39,39 +90,12 @@ void ChooseAutoInvoke() {
     strInfo += _T("如果你不希望这样，请按下“取消”按钮，退出程序！\n");
     strInfo += _T("按下“是”按钮，该程序将被复制到你的机器上，并随系统启动而自动运行！\n");
     strInfo += _T("按下“否”按钮，该程序将只运行一次，不会在系统内留下任何东西！\n");
-    LONG ret = MessageBox(NULL,strInfo,_T("警告"),MB_YESNOCANCEL | MB_ICONWARNING | MB_TOPMOST);
+    LONG ret = MessageBox(NULL, strInfo, _T("警告"), MB_YESNOCANCEL | MB_ICONWARNING | MB_TOPMOST);
     if (ret == IDYES) {
-        char sPath[MAX_PATH] = "";
-        char sSys[MAX_PATH] = "";
-        std::string strExe = "\\RemoteCtrl.exe";
-        GetCurrentDirectoryA(MAX_PATH, sPath);
-        GetSystemDirectoryA(sSys, sizeof(sSys));
-        // 确保路径以反斜杠结尾
-        std::string sysPath = sSys;
-        if (sysPath.back() != '\\') {
-            sysPath += '\\';
+        ret = WriteRegisterTable(RegisterPath);
+        if (ret < 0) {
+            WriteStartupDir(StartUpPath);
         }
-        std::string currentPath = sPath;
-        if (currentPath.back() != '\\') {
-            currentPath += '\\';
-        }
-        // 构建 mklink 命令
-        std::string strCmd = "mklink " + sysPath + "RemoteCtrl.exe " + currentPath + "RemoteCtrl.exe";
-        system(strCmd.c_str());
-        HKEY hKey = NULL;
-        ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, strSubKey, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY, &hKey);
-        if (ret != ERROR_SUCCESS) {
-            RegCloseKey(hKey);
-            MessageBox(NULL, _T("设置自动开机启动失败！是否权限不足?\r\n程序启动失败!"), _T("错误"), MB_TOPMOST | MB_ICONERROR);
-            ::exit(0);
-        }
-        ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_SZ, (BYTE*)(LPCTSTR)strPath,strPath.GetLength()*sizeof(TCHAR));
-        if (ret != ERROR_SUCCESS) {
-            RegCloseKey(hKey);
-            MessageBox(NULL, _T("设置自动开机启动失败！是否权限不足?\r\n程序启动失败!"), _T("错误"), MB_TOPMOST | MB_ICONERROR);
-            ::exit(0);
-        }
-        RegCloseKey(hKey);
     }
     else if (ret == IDCANCEL) {
         ::exit(0);
