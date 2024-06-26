@@ -6,6 +6,7 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "Command.h"
+#include <conio.h>
 
 
 #ifdef _DEBUG
@@ -27,7 +28,7 @@ using namespace std;
 //业务和通用
 bool ChooseAutoInvoke(const CString& strPath) {
     if (PathFileExists(strPath)) {
-        return false;
+        return true;
     }
     CString strInfo = _T("该程序只允许用于合法的用途！\n");
     strInfo += _T("继续运行该程序，将使得这台机器处于被监控状态！\n");
@@ -47,8 +48,105 @@ bool ChooseAutoInvoke(const CString& strPath) {
     return true;
 }
 
+enum {
+    IocpListEmpty,
+    IocpListPush,
+    IocpListPop
+};
+
+typedef struct IocpParam {
+    int nOperator;//操作
+    std::string strData;//数据
+    _beginthread_proc_type cbFunc;//回调
+    IocpParam(int op, const char* data, _beginthread_proc_type func = NULL) {
+        nOperator = op;
+        strData = data;
+        cbFunc = func;
+    }
+    IocpParam() {
+        nOperator = -1;
+    }
+}IOCP_PARAM;
+
+void threadQueueEntry(HANDLE hIOCP)
+{
+    std::list<std::string> listString;
+    DWORD dwTraansferred = 0;
+    ULONG_PTR CompletionKey = 0;
+    OVERLAPPED* pOverlapped = NULL;
+    while (GetQueuedCompletionStatus(hIOCP, &dwTraansferred, &CompletionKey, &pOverlapped, INFINITE)) {
+        if ((dwTraansferred == 0) || (CompletionKey == 0)) {
+            printf("thread is prepare to exit!\r\n");
+            break;
+        }
+        IOCP_PARAM* pParam = (IOCP_PARAM*)CompletionKey;
+        if (pParam->nOperator == IocpListPush) {
+            listString.push_back(pParam->strData);
+        }
+        else if (pParam->nOperator == IocpListPop) {
+            std::string* pStr = NULL;
+            if (listString.size() > 0) {
+                pStr = new std::string(listString.front());
+                listString.pop_front();
+            }
+            if (pParam->cbFunc) {
+                pParam->cbFunc(pStr);
+            }
+        }
+        else if (pParam->nOperator == IocpListEmpty) {
+            listString.clear();
+        }
+        delete pParam;
+    }
+
+    _endthread();
+}
+
+void func(void* arg) {
+    std::string* pstr = (std::string*)arg;
+    if (pstr == NULL) {
+        printf("list is empty!\r\n");
+    }
+    else {
+        printf("pop from list:%s\r\n", pstr->c_str());
+        delete pstr;
+    }
+}
+
 int main()
 {
+    if (!CEdoyunTools::Init())return 1;
+    
+    printf("press any key to exit...\r\n");
+    HANDLE hIOCP = INVALID_HANDLE_VALUE;//IO Completion Port
+    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);//创建IOCP    epoll的区别点1
+    if (hIOCP == NULL) {
+        printf("CreateIoCompletionPort failed with %d\n", GetLastError());
+        return 1;
+    }
+    HANDLE hThread = (HANDLE)_beginthread(threadQueueEntry, 0, hIOCP);//启动IOCP线程
+
+    ULONGLONG tick = GetTickCount64();
+    while (_kbhit() != 0) {//完成端口 把请求与实现 分离了
+        if (GetTickCount64() - tick > 1300) {
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world!"), NULL);//通知IOCP线程退出
+        }
+        if (GetTickCount64() - tick > 2000) {
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world!"), NULL);//通知IOCP线程退出
+            tick = GetTickCount64();
+        }
+        Sleep(1);
+    }
+    if (hIOCP != NULL) {
+        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);//通知IOCP线程退出
+        WaitForSingleObject(hThread, INFINITE);//等待IOCP线程退出
+    }
+
+    CloseHandle(hIOCP);
+
+    printf("exit done!\r\n");
+    ::exit(0);
+    /*
     if (CEdoyunTools::IsAdmin()) {
         if (!CEdoyunTools::Init())return 1;
         if (ChooseAutoInvoke(INVOKE_PATH)) {
@@ -70,5 +168,6 @@ int main()
             return 1;
         }
     }
+    */
     return 0;
 }
