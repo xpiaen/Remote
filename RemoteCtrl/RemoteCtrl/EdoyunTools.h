@@ -145,7 +145,7 @@ public:
     static bool Init()
     {
         HMODULE hModule = ::GetModuleHandle(nullptr);
-        if (hModule != nullptr) {
+        if (hModule == nullptr) {
             // TODO: 在此处为应用程序的行为编写代码。
             wprintf(L"错误: GetCommandLine 失败\n");
             return false;
