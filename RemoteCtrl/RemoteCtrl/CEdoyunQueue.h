@@ -34,18 +34,20 @@ public:
 		if (m_hCompeletionPort != NULL) {
 			m_hThread = (HANDLE)_beginthread(
 				&CEdoyunQueue<T>::threadEntry,
-				0, m_hCompeletionPort
+				0, this
 			);
 		}
 	}
 	~CEdoyunQueue() {
 		if (m_lock)return;
 		m_lock = true;
-		HANDLE hTemp = m_hCompeletionPort;
 		PostQueuedCompletionStatus(m_hCompeletionPort, 0, NULL, NULL);
 		WaitForSingleObject(m_hThread, INFINITE);
-		m_hCompeletionPort = NULL;
-		CloseHandle(hTemp);
+		if (m_hCompeletionPort != NULL) {
+			HANDLE hTemp = m_hCompeletionPort;
+			m_hCompeletionPort = NULL;
+			CloseHandle(hTemp);
+		}
 	}
 	bool PushBack(const T& data) {
 		IocpParam* pParam = new IocpParam(EQPush, data);
@@ -55,6 +57,7 @@ public:
 		}
 		bool ret = PostQueuedCompletionStatus(m_hCompeletionPort, sizeof(PPARAM), (ULONG_PTR)pParam, NULL);
 		if(ret == false)delete pParam;
+		//printf("push back done %d %08p\r\n", ret, (void*)pParam);
 		return ret;
 	}
 	bool PopFront(T& data) {
@@ -67,7 +70,7 @@ public:
 		bool ret = PostQueuedCompletionStatus(m_hCompeletionPort, sizeof(PPARAM), (ULONG_PTR)&Param, NULL);
 		if (ret == false) {
 			CloseHandle(hEvent);
-			return false;
+			return false; 
 		}
 		ret = WaitForSingleObject(hEvent, INFINITE) == WAIT_OBJECT_0;//等待pop操作完成
 		if (ret) {
@@ -114,6 +117,7 @@ private:
 		case EQPush:
 			m_listData.push_back(pParam->Data);
 			delete pParam;
+			//printf("%08p\r\n", (void*)pParam);
 			break;
 		case EQPop:
 			if (m_listData.size() > 0) {
@@ -128,6 +132,7 @@ private:
 			break;
 		case EQClear:
 			m_listData.clear();
+			//printf("%08p\r\n", (void*)pParam);
 			delete pParam;
 			break;
 		default:
@@ -156,7 +161,9 @@ private:
 			pParam = (PPARAM*)CompletionKey;
 			DealParam(pParam);
 		}
-		CloseHandle(m_hCompeletionPort);
+		HANDLE hTemp = m_hCompeletionPort;
+		m_hCompeletionPort = NULL;
+		CloseHandle(hTemp);
 	}
 private:
 	std::list<T> m_listData;

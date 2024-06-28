@@ -123,30 +123,62 @@ void func(void* arg) {
     }
 }
 
-int main()
-{
-    if (!CEdoyunTools::Init())return 1;
-    
-    printf("press any key to exit...\r\n");
+void test() 
+{//性能：CEdoyunQueue push性能高 pop性能仅1/4
     CEdoyunQueue<std::string> lstStrings;
-    ULONGLONG tick = GetTickCount64(),tick0 = GetTickCount64();
-    while (_kbhit() == 0) {//完成端口 把请求与实现 分离了
-        if (GetTickCount64() - tick0 > 1300) {
+    ULONGLONG tick = GetTickCount64(), tick0 = GetTickCount64(), total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) {//完成端口 把请求与实现 分离了
+        //if (GetTickCount64() - tick0 >= 5) 
+        {
             lstStrings.PushBack("hello world!");
             tick0 = GetTickCount64();
         }
-        if (GetTickCount64() - tick > 2000) {
+        //Sleep(1);
+    }
+    size_t count = lstStrings.Size();
+    printf("exit done!size: %d\r\n", count);
+    total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) {
+        //if (GetTickCount64() - tick >= 5) 
+        {
             std::string str;
             lstStrings.PopFront(str);
             tick = GetTickCount64();
-            printf("pop from list:%s\r\n", str.c_str());
+            //printf("pop from list:%s\r\n", str.c_str());
         }
-        Sleep(1);
+        //Sleep(1);
     }
-    printf("exit done!size: %d\r\n", lstStrings.Size());
+    printf("exit done!size: %d\r\n", count - lstStrings.Size());
     lstStrings.Clear();
-    printf("exit done!size: %d\r\n", lstStrings.Size());
-    ::exit(0);
+
+    std::list<std::string> lstData;
+    total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) {
+        lstData.push_back("hello world!");
+    }
+    count = lstData.size();
+    printf("lstData push done!size: %d\r\n", count);
+    total = GetTickCount64();
+    while (GetTickCount64() - total <= 250) {
+        if(lstData.size() > 0)lstData.pop_front();
+    }
+    printf("lstData pop done!size: %d\r\n", (count - lstData.size())*4);
+}
+/*
+1 BUG测试/功能测试
+2 关键因素的测试（内存泄漏、运行的稳定性、条件性）
+3 压力测试（可靠性测试）
+4 性能测试
+*/
+int main()
+{
+    if (!CEdoyunTools::Init())return 1;
+    //printf("press any key to exit...\r\n");
+    for (int i = 0; i < 10; i++) {
+        test();
+    }
+   
+    
     /*
     if (CEdoyunTools::IsAdmin()) {
         if (!CEdoyunTools::Init())return 1;
