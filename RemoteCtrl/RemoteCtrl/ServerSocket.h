@@ -143,7 +143,7 @@ private:
 	}
 	bool InitSockEnv() {
 		WSAData data;
-		if (WSAStartup(MAKEWORD(1, 1), &data) != 0) {
+		if (WSAStartup(MAKEWORD(2, 0), &data) != 0) {
 			// 初始化失败，处理错误
 			return FALSE;
 		}
