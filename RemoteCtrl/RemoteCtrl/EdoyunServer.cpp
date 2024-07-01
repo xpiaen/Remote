@@ -13,7 +13,7 @@ template<EdoyunOperator op>
 int AcceptOverlapped<op>::AcceptWorker() 
 {
     INT lLength = 0, rLength = 0;
-    if (*(LPDWORD)*m_client.get() > 0) {
+    if (*(LPDWORD)*m_client > 0) {
         GetAcceptExSockaddrs(*m_client, 0,
             sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
             (sockaddr**)m_client->GetLocalAddr(), &lLength, //本地地址
@@ -42,6 +42,10 @@ template<EdoyunOperator op>
 int SendOverlapped<op>::SendWorker()
 {
     //TODO:
+    /*
+    * 1 Send可能不会立即完成
+    * 2 
+    */
     return -1;
 }
 
@@ -58,6 +62,18 @@ int RecvOverlapped<op>::RecvWorker()
 {
     int ret = m_client->Recv();
     return ret;
+}
+
+EdoyunServer::~EdoyunServer()
+{
+    closesocket(m_sock);
+    std::map<SOCKET,PCLIENT>::iterator it = m_clients.begin();
+    for (; it != m_clients.end(); ++it) {
+        it->second.reset();
+    }
+    m_clients.clear();
+    CloseHandle(m_hIOCP);
+    m_pool.Stop();
 }
 
 bool EdoyunServer::StartService()
@@ -125,6 +141,49 @@ int EdoyunServer::threadIocp()
             }
         }
         else {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+EdoyunClient::EdoyunClient() :m_isbusy(false), m_used(0), m_flags(0), m_recved(0),
+    m_overlapped(new ACCEPTOVERLAPPED()),
+    m_recvOl(new RECVOVERLAPPED()),
+    m_sendOl(new SENDOVERLAPPED()),
+    m_vecSend(this, static_cast<SENDCALLBACK>(&EdoyunClient::SendData))
+{
+    m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+    m_buffer.resize(1024);
+    memset(&m_laddr, 0, sizeof(m_laddr));
+    memset(&m_raddr, 0, sizeof(m_raddr));
+}
+
+int EdoyunClient::Recv()
+{
+    int ret = recv(m_sock, m_buffer.data() + m_used, m_buffer.size() - m_used, 0);
+    if (ret <= 0)return -1;
+    m_used += (size_t)ret;
+    //TODO:解析数据
+    return 0;
+}
+
+int EdoyunClient::Send(void* buffer, size_t nSize)
+{
+    std::vector<char>data(nSize);
+    memcpy(data.data(), buffer, nSize);
+    if (m_vecSend.PushBack(data)) {
+        return 0;
+    }
+    return -1;
+}
+
+int EdoyunClient::SendData(std::vector<char>& data)
+{
+    if (m_vecSend.Size() > 0) {
+        int ret = WSASend(m_sock, SendWSABuffer(), 1, &m_recved, m_flags, &m_sendOl->m_overlapped, NULL);
+        if (ret != 0 && (WSAGetLastError() != WSA_IO_PENDING)) {
+            CEdoyunTools::ShowError();
             return -1;
         }
     }
