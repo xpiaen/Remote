@@ -100,4 +100,5 @@ void iocp()
 {
     EdoyunServer server;
     server.StartService();
+    getchar();
 }

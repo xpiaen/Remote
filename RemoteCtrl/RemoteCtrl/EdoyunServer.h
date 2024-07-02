@@ -106,8 +106,14 @@ public:
     LPWSABUF RecvWSABuffer() {
         return &m_recvOl->m_wsabuffer;
     }
+    LPWSAOVERLAPPED RecvOverlapped() {
+        return &m_recvOl->m_overlapped;
+    }
     LPWSABUF SendWSABuffer() {
         return &m_sendOl->m_wsabuffer;
+    }
+    LPWSAOVERLAPPED SendOverlapped() {
+        return &m_sendOl->m_overlapped;
     }
     DWORD& flags() {
         return m_flags;
@@ -144,33 +150,13 @@ class EdoyunServer :
     public ThreadFuncBase
 {
 public:
-    EdoyunServer(const std::string& ip = "0.0.0.0", short port = 9527) :m_pool(10) {
-        m_hIOCP = INVALID_HANDLE_VALUE;
-        m_sock = INVALID_SOCKET;
-        m_addr.sin_family = AF_INET;
-        m_addr.sin_port = htons(port);
-        m_addr.sin_addr.s_addr = inet_addr(ip.c_str());
-    }
+    EdoyunServer(const std::string& ip = "0.0.0.0", short port = 9527);
     ~EdoyunServer();
     bool StartService();
-    bool NewAccept() {
-        PCLIENT pClient(new EdoyunClient());
-        pClient->SetOverlapped(pClient);
-        m_clients.insert(std::pair<SOCKET, PCLIENT>(*pClient, pClient));
-        if (!AcceptEx(m_sock, *pClient, *pClient, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, *pClient, *pClient)) {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-            m_hIOCP = INVALID_HANDLE_VALUE;
-            return false;
-        }
-        return true;
-    }
+    bool NewAccept();
+    void BindNewSocket(SOCKET s);
 private:
-    void CreateSocket() {
-        m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-        int opt = 1;
-        setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-    }
+    void CreateSocket();
     int threadIocp();
 private:
     EdoyunThreadPool m_pool;
